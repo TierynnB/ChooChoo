@@ -1,7 +1,6 @@
-use std::collections::HashMap;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::Hasher;
 use std::io::{self};
-use std::iter::{Empty, Filter};
-use std::rc::Rc;
 use std::time::Instant;
 
 const NAME: &str = "rust_chess";
@@ -20,10 +19,18 @@ pub const KING: i8 = 6;
 pub const WHITE: i8 = 1;
 pub const BLACK: i8 = 2;
 pub const EMPTY: i8 = 0;
-
+pub struct MoveNode {
+    move_notation: String,
+    nodes: i32,
+}
+pub struct BestMoves {
+    pub best_move: Move,
+    pub best_score: i32,
+}
 pub struct SearchEngine {
     pub nodes: i32,
     start: Instant,
+    pub move_nodes: Vec<MoveNode>,
 }
 
 pub struct Data {
@@ -57,6 +64,8 @@ pub struct Board {
     pub side_to_move: i8,
     pub hash_of_previous_positions: Vec<String>,
     pub ply_record: Vec<PlyData>,
+    pub running_evaluation: i32,
+    pub player_colour: i8,
 }
 
 #[derive(Clone)]
@@ -67,11 +76,11 @@ pub struct Move {
     pub to: (usize, usize),
     pub to_piece: i8,
     pub to_colour: i8,
-    pub previous_move: Option<Rc<Move>>,
     pub notation_move: String,
     pub promotion_to: Option<i8>,
     pub en_passant: bool,
     pub castle_from_to_square: Option<((usize, usize), (usize, usize))>,
+    pub sort_score: i32,
 }
 impl Default for Move {
     fn default() -> Self {
@@ -83,11 +92,12 @@ impl Default for Move {
             to: (0, 0),
             to_piece: 0,
             to_colour: 0,
-            previous_move: None,
+
             notation_move: String::default(),
             promotion_to: None,
             en_passant: false,
             castle_from_to_square: None,
+            sort_score: 0,
         };
     }
 }
@@ -101,8 +111,68 @@ pub const MVV_LVA: [[u8; 7]; 7] = [
     [40, 41, 42, 43, 44, 45, 0], // victim R, attacker K, Q, R, B, N, P, None
     [50, 51, 52, 53, 54, 55, 0], // victim Q, attacker K, Q, R, B, N, P, None
     [0, 0, 0, 0, 0, 0, 0],       // victim None, attacker K, Q, R, B, N, P, None
-]; 
+];
+pub const MG_PAWN_TABLE: [[i32; 8]; 8] = [
+    [0, 0, 0, 0, 0, 0, 0, 0],
+    [98, 134, 61, 95, 68, 126, 34, -11],
+    [-6, 7, 26, 31, 65, 56, 25, -20],
+    [-14, 13, 6, 21, 23, 12, 17, -23],
+    [-27, -2, -5, 12, 17, 6, 10, -25],
+    [-26, -4, -4, -10, 3, 3, 33, -12],
+    [-35, -1, -20, -23, -15, 24, 38, -22],
+    [0, 0, 0, 0, 0, 0, 0, 0],
+];
+pub const MG_KNIGHT_TABLE: [[i32; 8]; 8] = [
+    [-167, -89, -34, -49, 61, -97, -15, -107],
+    [-73, -41, 72, 36, 23, 62, 7, -17],
+    [-47, 60, 37, 65, 84, 129, 73, 44],
+    [-9, 17, 19, 53, 37, 69, 18, 22],
+    [-13, 4, 16, 13, 28, 19, 21, -8],
+    [-23, -9, 12, 10, 19, 17, 25, -16],
+    [-29, -53, -12, -3, -1, 18, -14, -19],
+    [-105, -21, -58, -33, -17, -28, -19, -23],
+];
+pub const MG_BISHOP_TABLE: [[i32; 8]; 8] = [
+    [-29, 4, -82, -37, -25, -42, 7, -8],
+    [-26, 16, -18, -13, 30, 59, 18, -47],
+    [-16, 37, 43, 40, 35, 50, 37, -2],
+    [-4, 5, 19, 50, 37, 37, 7, -2],
+    [-6, 13, 13, 26, 34, 12, 10, 4],
+    [0, 15, 15, 15, 14, 27, 18, 10],
+    [4, 15, 16, 0, 7, 21, 33, 1],
+    [-33, -3, -14, -21, -13, -12, -39, -21],
+];
 
+pub const MG_ROOK_TABLE: [[i32; 8]; 8] = [
+    [32, 42, 32, 51, 63, 9, 31, 43],
+    [27, 32, 58, 62, 80, 67, 26, 44],
+    [-5, 19, 26, 36, 17, 45, 61, 16],
+    [-24, -11, 7, 26, 24, 35, -8, -20],
+    [-36, -26, -12, -1, 9, -7, 6, -23],
+    [-45, -25, -16, -17, 3, 0, -5, -33],
+    [-44, -16, -20, -9, -1, 11, -6, -71],
+    [-19, -13, 1, 17, 16, 7, -37, -26],
+];
+pub const MG_QUEEN_TABLE: [[i32; 8]; 8] = [
+    [-28, 0, 29, 12, 59, 44, 43, 45],
+    [-24, -39, -5, 1, -16, 57, 28, 54],
+    [-13, -17, 7, 8, 29, 56, 47, 57],
+    [-27, -27, -16, -16, -1, 17, -2, 1],
+    [-9, -26, -9, -10, -2, -4, 3, -3],
+    [-14, 2, -11, -2, -5, 2, 14, 5],
+    [-35, -8, 11, 2, 8, 15, -3, 1],
+    [-1, -18, -9, 10, -15, -25, -31, -50],
+];
+pub const MG_KING_TABLE: [[i32; 8]; 8] = [
+    [-65, 23, 16, -15, -56, -34, 2, 13],
+    [29, -1, -20, -7, -8, -4, -38, -29],
+    [-9, 24, 2, -16, -20, 6, 22, -22],
+    [-17, -20, -12, -27, -30, -25, -14, -36],
+    [-49, -1, -27, -39, -46, -44, -33, -51],
+    [-14, -14, -22, -46, -44, -30, -15, -27],
+    [1, 7, -8, -64, -43, -16, 9, 8],
+    [-15, 36, 12, -54, 8, -28, 24, 14],
+];
 pub const BOARD_COORDINATES: [[&str; 12]; 12] = [
     ["", "", "", "", "", "", "", "", "", "", "", ""],
     ["", "", "", "", "", "", "", "", "", "", "", ""],
@@ -133,44 +203,19 @@ pub const BOARD_COORDINATES: [[&str; 12]; 12] = [
     ["", "", "", "", "", "", "", "", "", "", "", ""],
     ["", "", "", "", "", "", "", "", "", "", "", ""],
 ];
-
-pub const EVAL_WEIGHTS: [[f32; 12]; 12] = [
-    [
-        0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00,
-    ],
-    [
-        0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00,
-    ],
-    [
-        0.00, 0.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 0.00, 0.00,
-    ],
-    [
-        0.00, 0.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 0.00, 0.00,
-    ],
-    [
-        0.00, 0.00, 1.00, 1.25, 1.5, 1.75, 1.75, 1.5, 1.25, 1.00, 0.00, 0.00,
-    ],
-    [
-        0.00, 0.00, 1.25, 1.5, 1.75, 2.00, 2.00, 1.75, 1.5, 1.25, 0.00, 0.00,
-    ],
-    [
-        0.00, 0.00, 1.25, 1.5, 1.75, 2.00, 2.00, 1.75, 1.5, 1.25, 0.00, 0.00,
-    ],
-    [
-        0.00, 0.00, 1.00, 1.25, 1.5, 1.75, 1.75, 1.5, 1.25, 1.00, 0.00, 0.00,
-    ],
-    [
-        0.00, 0.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 0.00, 0.00,
-    ],
-    [
-        0.00, 0.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 0.00, 0.00,
-    ],
-    [
-        0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00,
-    ],
-    [
-        0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00,
-    ],
+pub const EVAL_WEIGHTS: [[i8; 12]; 12] = [
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+    [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+    [0, 0, 1, 1, 1, 2, 2, 1, 1, 1, 0, 0],
+    [0, 0, 1, 1, 2, 2, 2, 2, 1, 1, 0, 0],
+    [0, 0, 1, 1, 2, 2, 2, 2, 1, 1, 0, 0],
+    [0, 0, 1, 1, 1, 2, 2, 1, 1, 1, 0, 0],
+    [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+    [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
 ];
 
 impl Board {
@@ -220,6 +265,8 @@ impl Board {
             side_to_move: 1,
             hash_of_previous_positions: Vec::new(),
             ply_record: Vec::new(),
+            running_evaluation: 0,
+            player_colour: 1,
         };
     }
     pub fn reset_board(&mut self) {
@@ -262,6 +309,8 @@ impl Board {
         self.side_to_move = 1;
         self.hash_of_previous_positions = Vec::new();
         self.ply_record = Vec::new();
+        self.running_evaluation = 0;
+        self.player_colour = 1;
     }
     fn clear_hash_of_previous_positions(&mut self) {
         self.hash_of_previous_positions = Vec::new();
@@ -307,8 +356,47 @@ impl Board {
             [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
         ];
     }
-
+    pub fn remove_piece_from_evaluation(
+        &mut self,
+        location: (usize, usize),
+        piece_type: i8,
+        piece_colour: i8,
+    ) {
+        let value = get_piece_square_value(location, piece_type, piece_colour);
+        if piece_colour == self.player_colour {
+            self.running_evaluation -= value;
+        } else {
+            self.running_evaluation += value;
+        }
+        // println!("running_evaluation: {}", self.running_evaluation);
+    }
+    pub fn add_piece_to_evaluation(
+        &mut self,
+        location: (usize, usize),
+        piece_type: i8,
+        piece_colour: i8,
+    ) {
+        let value = get_piece_square_value(location, piece_type, piece_colour);
+        if piece_colour == self.player_colour {
+            self.running_evaluation += value;
+        } else {
+            self.running_evaluation -= value;
+        }
+    }
     pub fn make_move(&mut self, move_to_do: &Move) {
+        // copy data to record
+        self.ply_record.push(PlyData {
+            ply: self.ply,
+            side_to_move: self.side_to_move,
+            has_king_moved: self.has_king_moved,
+            a1_rook_not_moved: self.a1_rook_not_moved,
+            a8_rook_not_moved: self.a8_rook_not_moved,
+            h1_rook_not_moved: self.h1_rook_not_moved,
+            h8_rook_not_moved: self.h8_rook_not_moved,
+            en_passant: self.en_passant,
+            en_passant_location: self.en_passant_location,
+        });
+
         // set board level en passant information
         self.en_passant = move_to_do.en_passant;
         self.en_passant_location = Some(move_to_do.to);
@@ -368,19 +456,30 @@ impl Board {
 
         self.ply += 1;
 
-        // copy data to record
-        self.ply_record.push(PlyData {
-            ply: self.ply,
-            side_to_move: self.side_to_move,
-            has_king_moved: self.has_king_moved,
-            a1_rook_not_moved: self.a1_rook_not_moved,
-            a8_rook_not_moved: self.a8_rook_not_moved,
-            h1_rook_not_moved: self.h1_rook_not_moved,
-            h8_rook_not_moved: self.h8_rook_not_moved,
-            en_passant: self.en_passant,
-            en_passant_location: self.en_passant_location,
-        });
+        //update evaluation
+        self.remove_piece_from_evaluation(
+            move_to_do.from,
+            move_to_do.from_piece,
+            move_to_do.from_colour,
+        );
+        self.remove_piece_from_evaluation(move_to_do.to, move_to_do.to_piece, move_to_do.to_colour);
+
+        // if promotion, add promotion piece
+        if move_to_do.promotion_to.is_some() {
+            self.add_piece_to_evaluation(
+                move_to_do.to,
+                move_to_do.promotion_to.unwrap(),
+                move_to_do.from_colour,
+            );
+        } else {
+            self.add_piece_to_evaluation(
+                move_to_do.to,
+                move_to_do.from_piece,
+                move_to_do.from_colour,
+            );
+        }
     }
+
     /// make move does not validate the move, it just does it, overwritting the destination square
     pub fn make_move_with_notation(&mut self, chess_move: String) -> Result<Move, String> {
         let move_to_do_result = self.convert_notation_to_move(chess_move);
@@ -388,6 +487,15 @@ impl Board {
             Err(e) => return Err(e),
             Ok(m) => m,
         };
+
+        // validate move
+        if move_to_do.from_piece == EMPTY {
+            return Err("cannot move empty square".to_string());
+        }
+        if move_to_do.from_colour == EMPTY {
+            return Err("cannot move empty colour".to_string());
+        }
+
         self.make_move(&move_to_do);
         return Ok(move_to_do);
     }
@@ -412,7 +520,6 @@ impl Board {
             WHITE
         };
         // remove last ply data
-        self.ply_record.pop();
 
         let previous_ply = self.ply_record.last();
 
@@ -430,22 +537,33 @@ impl Board {
             self.en_passant = previous_ply_data.en_passant;
             self.en_passant_location = previous_ply_data.en_passant_location;
         }
+        self.ply_record.pop();
+        //update evaluation
+        self.add_piece_to_evaluation(chess_move.to, chess_move.from_piece, chess_move.to_colour);
+        //update evaluation
+        // if promotion, add promotion piece
+        if chess_move.promotion_to.is_some() {
+            self.remove_piece_from_evaluation(
+                chess_move.to,
+                chess_move.promotion_to.unwrap(),
+                chess_move.from_colour,
+            );
+        } else {
+            self.remove_piece_from_evaluation(
+                chess_move.to,
+                chess_move.from_piece,
+                chess_move.from_colour,
+            );
+        }
+        self.add_piece_to_evaluation(
+            chess_move.from,
+            chess_move.from_piece,
+            chess_move.from_colour,
+        );
     }
 
     pub fn convert_notation_to_move(&self, chess_move: String) -> Result<Move, String> {
-        let mut converted_move = Move {
-            from: (0, 0),
-            from_piece: 0,
-            from_colour: 0,
-            to: (0, 0),
-            to_piece: 0,
-            to_colour: 0,
-            previous_move: None,
-            notation_move: chess_move.clone(),
-            promotion_to: None,
-            en_passant: false,
-            castle_from_to_square: None,
-        };
+        let mut converted_move = Move::default();
 
         // castling is a special case
         if chess_move == "O-O" || chess_move == "O-O-O" {
@@ -474,11 +592,12 @@ impl Board {
                 to: from_to_squares.1,
                 to_piece: EMPTY,
                 to_colour: EMPTY,
-                previous_move: None,
+
                 notation_move: chess_move.clone(),
                 promotion_to: None,
                 en_passant: false,
                 castle_from_to_square: Some((from_to_squares.2, from_to_squares.3)),
+                sort_score: 0,
             });
         }
 
@@ -589,8 +708,6 @@ impl Board {
     }
     pub fn hash_board_state(&self) -> String {
         // take board state and generate a hash to use to compare uniqueness of position
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
 
         let mut hasher = DefaultHasher::new();
         for row in self.board_array.iter().skip(2).take(8) {
@@ -609,12 +726,11 @@ impl Board {
         return format!("{:x}", hasher.finish());
     }
     pub fn has_positions_repeated(&self) -> bool {
-        let mut count = 0;
         // check if current hash appears two or more times in the history
         let current_hash = self.hash_board_state();
 
         //search history for this hash
-        count = self
+        let count = self
             .hash_of_previous_positions
             .iter()
             .filter(|&x| *x == current_hash)
@@ -699,8 +815,8 @@ pub fn print_board(board: &Board) {
 
     for (row_index, row) in board.colour_array.iter().enumerate() {
         // println!("{:?}", row);
-        for (column_index, colour) in row.iter().enumerate() {
-            let location = (row_index, column_index);
+        for (column_index, _colour) in row.iter().enumerate() {
+            // let location = (row_index, column_index);
             let square = board.board_array[row_index][column_index];
             if square == -1 {
                 continue;
@@ -731,8 +847,8 @@ pub fn print_board(board: &Board) {
     // print colour board
     for (row_index, row) in board.colour_array.iter().enumerate() {
         // println!("{:?}", row);
-        for (column_index, colour) in row.iter().enumerate() {
-            let location = (row_index, column_index);
+        for (column_index, _colour) in row.iter().enumerate() {
+            // let location = (row_index, column_index);
             let square = board.colour_array[row_index][column_index];
             if square == -1 {
                 continue;
@@ -798,7 +914,7 @@ pub fn generate_pawn_moves(
         row + 1
     };
     let square_in_front = board.board_array[index_of_square_in_front][column];
-    let square_in_front_colour = board.colour_array[index_of_square_in_front][column];
+    // let square_in_front_colour = board.colour_array[index_of_square_in_front][column];
     // if square not empty, return.
     if square_in_front != 0 {
         blocked = true;
@@ -829,9 +945,10 @@ pub fn generate_pawn_moves(
                     }),
                 ),
                 en_passant: false,
-                previous_move: None,
+
                 promotion_to: Some(piece),
                 castle_from_to_square: None,
+                sort_score: 0,
             });
         }
     } else if !blocked {
@@ -848,9 +965,10 @@ pub fn generate_pawn_moves(
                 None,
             ),
             en_passant: false,
-            previous_move: None,
+
             promotion_to: None,
             castle_from_to_square: None,
+            sort_score: 0,
         });
     }
 
@@ -874,9 +992,10 @@ pub fn generate_pawn_moves(
                 None,
             ),
             en_passant: false,
-            previous_move: None,
+
             promotion_to: None,
             castle_from_to_square: None,
+            sort_score: 0,
         });
     }
     // attack other diagonal
@@ -899,9 +1018,10 @@ pub fn generate_pawn_moves(
                 None,
             ),
             en_passant: false,
-            previous_move: None,
+
             promotion_to: None,
             castle_from_to_square: None,
+            sort_score: 0,
         });
     }
 
@@ -928,10 +1048,11 @@ pub fn generate_pawn_moves(
                     (index_of_square_in_front, column),
                     None,
                 ),
-                previous_move: None,
+
                 promotion_to: None,
                 en_passant: true,
                 castle_from_to_square: None,
+                sort_score: 0,
             });
         }
     }
@@ -952,10 +1073,11 @@ pub fn generate_pawn_moves(
                     (index_of_square_in_front, move_info.1),
                     None,
                 ),
-                previous_move: None,
+
                 promotion_to: None,
                 en_passant: false,
                 castle_from_to_square: None,
+                sort_score: 0,
             });
         }
     }
@@ -968,7 +1090,7 @@ pub fn generate_knight_moves(
     board: &Board,
 ) -> Vec<Move> {
     let mut moves: Vec<Move> = vec![];
-    let enemy_color = if side_to_generate_for == 1 { 2 } else { 1 };
+    // let enemy_color = if side_to_generate_for == 1 { 2 } else { 1 };
     let (row, column) = square;
     let knight_move_steps: [(isize, isize); 8] = [
         (-2, -1),
@@ -1015,9 +1137,10 @@ pub fn generate_knight_moves(
                 None,
             ),
             en_passant: false,
-            previous_move: None,
+
             promotion_to: None,
             castle_from_to_square: None,
+            sort_score: 0,
         });
     }
     return moves;
@@ -1029,7 +1152,7 @@ pub fn generate_bishop_moves(
     board: &Board,
 ) -> Vec<Move> {
     let mut moves: Vec<Move> = vec![];
-    let enemy_color = if side_to_generate_for == 1 { 2 } else { 1 };
+    // let _enemy_color = if side_to_generate_for == 1 { 2 } else { 1 };
     // from a bishops square, look along the 4 diagonals to see if it can move further
     let (row, column) = square;
     let bishop_move_directions: [(isize, isize); 4] = [(-1, -1), (-1, 1), (1, -1), (1, 1)];
@@ -1068,9 +1191,10 @@ pub fn generate_bishop_moves(
                     None,
                 ),
                 en_passant: false,
-                previous_move: None,
+
                 promotion_to: None,
                 castle_from_to_square: None,
+                sort_score: 0,
             });
 
             // if captured a piece, stop multiplying and look in new direction
@@ -1089,7 +1213,7 @@ pub fn generate_rook_moves(
     board: &Board,
 ) -> Vec<Move> {
     let mut moves: Vec<Move> = vec![];
-    let enemy_color = if side_to_generate_for == 1 { 2 } else { 1 };
+    // let _enemy_color = if side_to_generate_for == 1 { 2 } else { 1 };
     // from a rooks square, look along the 4 directions to see if it can move further
     let (row, column) = square;
     let rook_move_directions: [(isize, isize); 4] = [(-1, 0), (1, 0), (0, -1), (0, 1)];
@@ -1100,7 +1224,6 @@ pub fn generate_rook_moves(
                 [(column as isize + direction.1 * multiplier) as usize];
 
             if square_move == -1 || square_move == side_to_generate_for {
-                // println!("captured a piece {}", square_move);
                 break;
             }
             //get to piece type
@@ -1110,6 +1233,7 @@ pub fn generate_rook_moves(
             let to_square_colour = board.colour_array
                 [(row as isize + direction.0 * multiplier) as usize]
                 [(column as isize + direction.1 * multiplier) as usize];
+
             moves.push(Move {
                 from: square,
                 from_piece: ROOK,
@@ -1129,9 +1253,10 @@ pub fn generate_rook_moves(
                     None,
                 ),
                 en_passant: false,
-                previous_move: None,
+
                 promotion_to: None,
                 castle_from_to_square: None,
+                sort_score: 0,
             });
 
             // if captured a piece, stop multiplying and look in new direction
@@ -1152,7 +1277,7 @@ pub fn generate_queen_moves(
     board: &Board,
 ) -> Vec<Move> {
     let mut moves: Vec<Move> = vec![];
-    let enemy_color = if side_to_generate_for == 1 { 2 } else { 1 };
+    // let _enemy_color = if side_to_generate_for == 1 { 2 } else { 1 };
     // from a rooks square, look along the 4 directions to see if it can move further
     let (row, column) = square;
     let move_directions: [(isize, isize); 8] = [
@@ -1200,9 +1325,10 @@ pub fn generate_queen_moves(
                     None,
                 ),
                 en_passant: false,
-                previous_move: None,
+
                 promotion_to: None,
                 castle_from_to_square: None,
+                sort_score: 0,
             });
 
             // if captured a piece, stop multiplying and look in new direction
@@ -1215,13 +1341,16 @@ pub fn generate_queen_moves(
     return moves;
 }
 
+/// generate pseudo legal king moves,
+/// this includes castling
+/// this will check king is not being moved into check
 pub fn generate_king_moves(
     square: (usize, usize),
     side_to_generate_for: i8,
     board: &Board,
 ) -> Vec<Move> {
     let mut moves: Vec<Move> = vec![];
-    let enemy_color = if side_to_generate_for == 1 { 2 } else { 1 };
+    // let _enemy_color = if side_to_generate_for == 1 { 2 } else { 1 };
     let (row, column) = square;
     let king_move_directions: [(isize, isize); 8] = [
         (-1, 0),
@@ -1266,9 +1395,10 @@ pub fn generate_king_moves(
                 None,
             ),
             en_passant: false,
-            previous_move: None,
+
             promotion_to: None,
             castle_from_to_square: None,
+            sort_score: 0,
         });
 
         // if captured a piece, stop multiplying and look in new direction
@@ -1298,9 +1428,10 @@ pub fn generate_king_moves(
                         None,
                     ),
                     en_passant: false,
-                    previous_move: None,
+
                     promotion_to: None,
                     castle_from_to_square: None,
+                    sort_score: 0,
                 });
             }
             if board.h1_rook_not_moved && board.is_square_empty("f1") && board.is_square_empty("g1")
@@ -1318,9 +1449,10 @@ pub fn generate_king_moves(
                         None,
                     ),
                     en_passant: false,
-                    previous_move: None,
+
                     promotion_to: None,
                     castle_from_to_square: None,
+                    sort_score: 0,
                 });
             }
         }
@@ -1344,9 +1476,10 @@ pub fn generate_king_moves(
                         None,
                     ),
                     en_passant: false,
-                    previous_move: None,
+
                     promotion_to: None,
                     castle_from_to_square: None,
+                    sort_score: 0,
                 });
             }
             if board.h8_rook_not_moved && board.is_square_empty("f8") && board.is_square_empty("g8")
@@ -1364,9 +1497,10 @@ pub fn generate_king_moves(
                         None,
                     ),
                     en_passant: false,
-                    previous_move: None,
+
                     promotion_to: None,
                     castle_from_to_square: None,
+                    sort_score: 0,
                 });
             }
         }
@@ -1398,7 +1532,6 @@ pub fn convert_fen_to_board(fen: &str) -> Board {
     board.h1_rook_not_moved = true;
     board.a1_rook_not_moved = true;
 
-    println!("fen: {}", fen);
     // board is 12 x 12, but fen is 8x8. Need to convert
     // board starts at 2,2 to 2,10
     // and 10,2 and 10,10
@@ -1406,9 +1539,9 @@ pub fn convert_fen_to_board(fen: &str) -> Board {
         match index {
             0 => {
                 let mut current_row = 2;
-                for (char_index, characters) in section.split('/').enumerate() {
+                for (_char_index, characters) in section.split('/').enumerate() {
                     let mut current_column = 2;
-                    for (char_index, character) in characters.chars().enumerate() {
+                    for (_char_index, character) in characters.chars().enumerate() {
                         if current_column > 10 {
                             break;
                         }
@@ -1450,10 +1583,10 @@ pub fn convert_fen_to_board(fen: &str) -> Board {
             2 => {
                 for character in section.chars() {
                     match character {
-                        'k' => board.h8_rook_not_moved = false,
-                        'q' => board.a8_rook_not_moved = false,
-                        'K' => board.h1_rook_not_moved = false,
-                        'Q' => board.a1_rook_not_moved = false,
+                        'k' => board.h8_rook_not_moved = true,
+                        'q' => board.a8_rook_not_moved = true,
+                        'K' => board.h1_rook_not_moved = true,
+                        'Q' => board.a1_rook_not_moved = true,
                         '-' => {}
                         _ => todo!(),
                     }
@@ -1513,7 +1646,36 @@ pub fn convert_fen_to_board(fen: &str) -> Board {
         }
     }
 
+    // update running eval
+    board.running_evaluation = evaluate(&board);
+
     return board;
+}
+pub fn get_piece_square_value(location: (usize, usize), piece_type: i8, colour: i8) -> i32 {
+    if colour == WHITE {
+        return match piece_type {
+            PAWN => MG_PAWN_TABLE[location.0 - 2][location.1 - 2],
+            KNIGHT => MG_KNIGHT_TABLE[location.0 - 2][location.1 - 2],
+            BISHOP => MG_BISHOP_TABLE[location.0 - 2][location.1 - 2],
+            ROOK => MG_ROOK_TABLE[location.0 - 2][location.1 - 2],
+            QUEEN => MG_QUEEN_TABLE[location.0 - 2][location.1 - 2],
+            KING => MG_KING_TABLE[location.0 - 2][location.1 - 2],
+            _ => 0,
+        };
+    } else {
+        if (8 - (location.0 as i8 - 2)) < 0 || (8 - (location.1 as i8 - 2)) < 0 {
+            println!("{} {} {} {} ", location.0, location.1, piece_type, colour,);
+        }
+        return match piece_type {
+            PAWN => MG_PAWN_TABLE[7 - (location.0 - 2)][7 - (location.1 - 2)],
+            KNIGHT => MG_KNIGHT_TABLE[7 - (location.0 - 2)][7 - (location.1 - 2)],
+            BISHOP => MG_BISHOP_TABLE[7 - (location.0 - 2)][7 - (location.1 - 2)],
+            ROOK => MG_ROOK_TABLE[7 - (location.0 - 2)][7 - (location.1 - 2)],
+            QUEEN => MG_QUEEN_TABLE[7 - (location.0 - 2)][7 - (location.1 - 2)],
+            KING => MG_KING_TABLE[7 - (location.0 - 2)][7 - (location.1 - 2)],
+            _ => 0,
+        };
+    }
 }
 pub fn evaluate(board: &Board) -> i32 {
     let mut score: i32 = 0;
@@ -1523,40 +1685,45 @@ pub fn evaluate(board: &Board) -> i32 {
             let location = (row_index, column_index);
             let square = board.board_array[row_index][column_index];
 
-            let score_for_piece_type = match square {
-                1 => 200,
-                2 => 400,
-                3 => 400,
-                4 => 500,
-                5 => 600,
-                6 => 2000,
-                _ => 0,
-            };
-
+            if square == -1 || square == EMPTY {
+                continue;
+            }
             // multiple score by eval_weights
-            let mut score_for_piece_type =
-                score_for_piece_type as f32 * EVAL_WEIGHTS[row_index][column_index];
+            let mut score_for_piece_type = get_piece_square_value(location, square, *colour);
 
+            println!(
+                "score_for_piece_type: {}, square: {}, colour: {}",
+                score_for_piece_type, square, colour
+            );
             // if for other side, make negative.
             if colour != &board.side_to_move {
-                score_for_piece_type *= -1.00;
+                score_for_piece_type *= -1;
             }
+            // println!("{}, {}", square, colour);
+            // println!("score_for_piece_type: {}", score_for_piece_type);
             score += score_for_piece_type as i32;
         }
     }
     return score;
     // count and addup pieces.
 }
-pub fun order_moves(mut moves: Vec<Move>) -> Vec<Move> {
+pub fn order_moves(moves: &mut Vec<Move>) {
+    for i in 0..moves.len() {
+        let move_to_score = moves.get_mut(i).unwrap();
+        let value = MVV_LVA[move_to_score.to_piece as usize][move_to_score.from_piece as usize];
+        move_to_score.sort_score += value as i32;
+    }
+
+    moves.sort_by(|a, b| a.sort_score.cmp(&b.sort_score));
     // sort moves
     // captures first
-
 }
 impl SearchEngine {
     pub fn new() -> Self {
         SearchEngine {
             nodes: 0,
             start: Instant::now(),
+            move_nodes: Vec::new(),
         }
     }
 
@@ -1570,12 +1737,16 @@ impl SearchEngine {
     ) -> i32 {
         // the move needs to record its own evaluation
         if depth == 0 {
-            return evaluate(board);
+            let mut running_evaluation = board.running_evaluation;
+            if board.side_to_move != WHITE {
+                running_evaluation *= -1;
+            }
+            return running_evaluation;
         };
 
         // generate moves for current depth of board
         let mut moves_for_current_depth = generate_pseudo_legal_moves(board, board.side_to_move);
-        moves_for_current_depth.sort_by(|a, b| b.to_piece.cmp(&a.to_piece));
+        order_moves(&mut moves_for_current_depth);
         if maximizing_player {
             let mut max_eval = -1000;
             for generated_move in moves_for_current_depth.iter() {
@@ -1610,16 +1781,17 @@ impl SearchEngine {
         }
     }
 
-    pub fn search(&mut self, board: &mut Board, depth: i8) -> (Move, i32) {
+    pub fn search(&mut self, board: &mut Board, depth: i8) -> Vec<BestMoves> {
         let mut best_move = Move::default();
         let mut best_score = -1000;
+        let mut best_moves = Vec::new();
 
         self.nodes = 0;
         self.start = Instant::now();
 
         // generate moves for current depth of board
         let mut moves_for_current_depth = generate_pseudo_legal_moves(board, board.side_to_move);
-        // moves_for_current_depth.sort_by(|a, b| b.to_piece.cmp(&a.to_piece));
+        order_moves(&mut moves_for_current_depth);
         for generated_move in moves_for_current_depth.iter() {
             board.make_move(generated_move);
 
@@ -1629,23 +1801,69 @@ impl SearchEngine {
             if score > best_score {
                 best_score = score;
                 best_move = generated_move.clone();
+                best_moves.push(BestMoves {
+                    best_move,
+                    best_score,
+                });
             }
 
             board.un_make_move(generated_move);
             // print_board(board);
         }
+        best_moves.sort_by(|a, b| b.best_score.cmp(&a.best_score));
+        return best_moves;
+    }
 
-        return (best_move, best_score);
+    pub fn perft(&mut self, board: &mut Board, depth: i8, first_call: bool) {
+        if depth == 0 {
+            return;
+        }
+        // for a given fen, generate all moves down to given depth
+        // and print the number of nodes generated
+        let moves_for_current_depth = generate_pseudo_legal_moves(board, board.side_to_move);
+
+        // append root node and count
+        for generated_move in moves_for_current_depth.iter() {
+            board.make_move(generated_move);
+            if !first_call {
+                self.nodes += 1;
+            } else {
+                self.nodes = 0;
+            }
+
+            self.perft(board, depth - 1, false);
+
+            board.un_make_move(generated_move);
+
+            if first_call {
+                // update root node here with number
+                self.move_nodes.push(MoveNode {
+                    move_notation: generated_move.notation_move.clone(),
+                    nodes: self.nodes,
+                });
+            }
+        }
+        if first_call {
+            self.nodes = 0;
+            for move_node in self.move_nodes.iter() {
+                self.nodes += move_node.nodes;
+            }
+        }
+    }
+
+    pub fn bench() {
+        // run a series of fens,
+        // output total nodes searched
+        // are these legal moves?
     }
 }
 
 pub fn generate_pseudo_legal_moves(board: &Board, side_to_generate_for: i8) -> Vec<Move> {
     let mut moves: Vec<Move> = vec![];
-    let mut depth_moves: Vec<Move> = vec![];
 
     // go through each piece on the board, by colour to only get moves for side to move.
     for (row_index, row) in board.colour_array.iter().enumerate() {
-        for (column_index, colour) in row
+        for (column_index, _colour) in row
             .iter()
             .enumerate()
             .filter(|(_a, b)| *b == &side_to_generate_for)
@@ -1667,11 +1885,6 @@ pub fn generate_pseudo_legal_moves(board: &Board, side_to_generate_for: i8) -> V
     }
 
     return moves;
-}
-pub fn prune_moves(board: &Board) -> bool {
-    // for moves,
-
-    return false;
 }
 
 // pub fn generate_moves(board: Board, side_to_move: i8) -> ();
@@ -1704,6 +1917,7 @@ pub fn run() {
                 "search" => match inputs.next() {
                     None => println!("no more commands"),
                     Some(arg_2) => {
+                        search_engine = SearchEngine::new();
                         let depth: i8 = arg_2.parse().expect("Invalid depth value");
                         let outcome = search_engine.search(&mut board, depth);
                         println!(
@@ -1713,13 +1927,19 @@ pub fn run() {
                             search_engine.nodes as f32
                                 / search_engine.start.elapsed().as_secs_f32()
                         );
-                        println!("best move {}, score {}", outcome.0.notation_move, outcome.1);
+                        println!(
+                            "best move {}, score {}",
+                            outcome[0].best_move.notation_move, outcome[0].best_score
+                        );
                     }
                 },
                 "setoption" => match inputs.next() {
                     None => println!("no more commands"),
                     Some(arg_2) => println!("found a match for option {}", arg_2),
                 },
+                "getPieceValue" => {
+                    println!("{}", get_piece_square_value((8, 2), 1, 2));
+                }
                 "fen" => {
                     let mut fen_string = String::new();
                     for input in inputs {
@@ -1751,8 +1971,24 @@ pub fn run() {
                     }
                 },
                 "eval" => {
-                    let score = evaluate(&board);
-                    println!("{}", score);
+                    println!("{}, {}", evaluate(&board), board.running_evaluation);
+                }
+                "perft" => {
+                    // perft
+                    search_engine = SearchEngine::new();
+                    let depth: i8 = inputs
+                        .next()
+                        .expect("Invalid depth value")
+                        .parse()
+                        .expect("Invalid depth value");
+
+                    search_engine.perft(&mut board, depth, true);
+                    println!("total nodes: {}", search_engine.nodes);
+                    println!("root moves: {}", search_engine.move_nodes.len());
+                    for root in search_engine.move_nodes.iter() {
+                        println!("{} - {}", root.move_notation, root.nodes);
+                    }
+                    println!()
                 }
                 "generate" => {
                     let side_to_move = board.side_to_move;
