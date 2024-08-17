@@ -1,0 +1,218 @@
+use crate::board::Board;
+use crate::constants;
+use crate::evaluate;
+pub fn convert_fen_to_board(fen: &str) -> Board {
+    // split by whitespace
+
+    let mut board = Board::init();
+
+    board.clear_board();
+
+    board.h8_rook_not_moved = true;
+    board.a8_rook_not_moved = true;
+    board.h1_rook_not_moved = true;
+    board.a1_rook_not_moved = true;
+
+    // board is 12 x 12, but fen is 8x8. Need to convert
+    // board starts at 2,2 to 2,10
+    // and 10,2 and 10,10
+    for (index, section) in fen.split_whitespace().enumerate() {
+        match index {
+            0 => {
+                let mut current_row = 2;
+                for (_char_index, characters) in section.split('/').enumerate() {
+                    let mut current_column = 2;
+                    for (_char_index, character) in characters.chars().enumerate() {
+                        if current_column > 10 {
+                            break;
+                        }
+
+                        if character.is_alphabetic() {
+                            board.board_array[current_row][current_column] =
+                                convert_alphabetic_to_piece(character);
+
+                            if character.is_uppercase() {
+                                board.colour_array[current_row][current_column] = 1;
+                            } else {
+                                board.colour_array[current_row][current_column] = 2;
+                            }
+
+                            current_column += 1;
+                        }
+
+                        if character.is_numeric() {
+                            current_column += character.to_digit(10).unwrap() as usize;
+                        }
+                    }
+
+                    current_row += 1;
+                    if current_row > 10 {
+                        break;
+                    }
+                }
+            }
+
+            1 => {
+                // side to move
+                match section {
+                    "w" => board.side_to_move = 1,
+                    "b" => board.side_to_move = 2,
+                    "-" => {}
+                    _ => todo!(), // probably panic
+                }
+            }
+            2 => {
+                for character in section.chars() {
+                    match character {
+                        'k' => board.h8_rook_not_moved = true,
+                        'q' => board.a8_rook_not_moved = true,
+                        'K' => board.h1_rook_not_moved = true,
+                        'Q' => board.a1_rook_not_moved = true,
+                        '-' => {}
+                        _ => todo!(),
+                    }
+                }
+            }
+            3 => {
+                let en_passant_column = section.chars().nth(0).unwrap();
+                if en_passant_column == '-' {
+                    continue;
+                }
+                board.en_passant = true;
+                let en_passant_row = section.chars().nth(1).unwrap();
+                match en_passant_row {
+                    '3' => {
+                        for (board_row_index, board_row) in
+                            constants::BOARD_COORDINATES.iter().enumerate()
+                        {
+                            for (column_index, square_coordinate) in board_row.iter().enumerate() {
+                                if *square_coordinate
+                                    == format!(
+                                        "{}{}",
+                                        en_passant_column,
+                                        (en_passant_row.to_digit(10).unwrap() + 1)
+                                    )
+                                {
+                                    board.en_passant_location =
+                                        Some((board_row_index, column_index));
+
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    '6' => {
+                        for (board_row_index, board_row) in
+                            constants::BOARD_COORDINATES.iter().enumerate()
+                        {
+                            for (column_index, square_coordinate) in board_row.iter().enumerate() {
+                                if *square_coordinate
+                                    == format!(
+                                        "{}{}",
+                                        (en_passant_row.to_digit(10).unwrap() - 1),
+                                        en_passant_column
+                                    )
+                                {
+                                    board.en_passant_location =
+                                        Some((board_row_index, column_index));
+
+                                    break;
+                                }
+                            }
+                            break;
+                        }
+                    }
+                    _ => todo!(),
+                }
+            } // en passant
+            4 => {} // halfmove, i havent done this
+            5 => board.ply = section.parse::<i8>().unwrap(),
+            _ => {}
+        }
+    }
+
+    // update running eval
+    board.running_evaluation = evaluate::evaluate(&board);
+
+    return board;
+}
+
+pub fn get_piece_square_value(location: (usize, usize), piece_type: i8, colour: i8) -> i32 {
+    if colour == constants::WHITE {
+        return match piece_type {
+            constants::PAWN => constants::MG_PAWN_TABLE[location.0 - 2][location.1 - 2],
+            constants::KNIGHT => constants::MG_KNIGHT_TABLE[location.0 - 2][location.1 - 2],
+            constants::BISHOP => constants::MG_BISHOP_TABLE[location.0 - 2][location.1 - 2],
+            constants::ROOK => constants::MG_ROOK_TABLE[location.0 - 2][location.1 - 2],
+            constants::QUEEN => constants::MG_QUEEN_TABLE[location.0 - 2][location.1 - 2],
+            constants::KING => constants::MG_KING_TABLE[location.0 - 2][location.1 - 2],
+            _ => 0,
+        };
+    } else {
+        if (8 - (location.0 as i8 - 2)) < 0 || (8 - (location.1 as i8 - 2)) < 0 {
+            println!("{} {} {} {} ", location.0, location.1, piece_type, colour,);
+        }
+        return match piece_type {
+            constants::PAWN => constants::MG_PAWN_TABLE[7 - (location.0 - 2)][7 - (location.1 - 2)],
+            constants::KNIGHT => {
+                constants::MG_KNIGHT_TABLE[7 - (location.0 - 2)][7 - (location.1 - 2)]
+            }
+            constants::BISHOP => {
+                constants::MG_BISHOP_TABLE[7 - (location.0 - 2)][7 - (location.1 - 2)]
+            }
+            constants::ROOK => constants::MG_ROOK_TABLE[7 - (location.0 - 2)][7 - (location.1 - 2)],
+            constants::QUEEN => {
+                constants::MG_QUEEN_TABLE[7 - (location.0 - 2)][7 - (location.1 - 2)]
+            }
+            constants::KING => constants::MG_KING_TABLE[7 - (location.0 - 2)][7 - (location.1 - 2)],
+            _ => 0,
+        };
+    }
+}
+
+pub fn convert_alphabetic_to_piece(character: char) -> i8 {
+    match character.to_ascii_uppercase() {
+        'K' => constants::KING,
+        'Q' => constants::QUEEN,
+        'R' => constants::ROOK,
+        'B' => constants::BISHOP,
+        'N' => constants::KNIGHT,
+        'P' => constants::PAWN,
+        _ => -1,
+    }
+}
+
+pub fn convert_array_location_to_notation(
+    from: (usize, usize),
+    to: (usize, usize),
+    promotion: Option<String>,
+) -> String {
+    let mut notation_move: String = Default::default();
+    let start_location = constants::BOARD_COORDINATES[from.0][from.1];
+    let end_location = constants::BOARD_COORDINATES[to.0][to.1];
+
+    notation_move.push_str(start_location);
+    notation_move.push_str(end_location);
+
+    if promotion.is_some() {
+        // println!("promoted {}", &promotion.clone().unwrap());
+        notation_move.push_str(&promotion.unwrap().clone())
+    }
+    return notation_move;
+}
+pub fn convert_notation_to_location(chess_move: &str) -> Option<(usize, usize)> {
+    let mut location = (0, 0);
+
+    // get first two characters
+    for (board_row_index, board_row) in constants::BOARD_COORDINATES.iter().enumerate() {
+        for (column_index, square_coordinate) in board_row.iter().enumerate() {
+            // println!("{}", square_coordinate);
+            if *square_coordinate == chess_move {
+                location.0 = board_row_index;
+                location.1 = column_index;
+                break;
+            }
+        }
+    }
+    return Some(location);
+}
