@@ -18,6 +18,8 @@ pub struct PlyData {
 pub struct Board {
     pub board_array: [[i8; 12]; 12],
     pub colour_array: [[i8; 12]; 12],
+    pub white_attacks: [[bool; 8]; 8],
+    pub black_attacks: [[bool; 8]; 8],
     pub has_king_moved: bool,
     pub a1_rook_not_moved: bool, // defaults to true
     pub a8_rook_not_moved: bool, // defaults to true
@@ -36,7 +38,6 @@ pub struct Board {
 impl Board {
     pub fn init() -> Board {
         // initialise the board with a new game
-
         let board_array = [
             [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
             [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
@@ -51,6 +52,7 @@ impl Board {
             [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
             [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
         ];
+
         let colour_array = [
             [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
             [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
@@ -66,9 +68,15 @@ impl Board {
             [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
         ];
 
+        let white_attacks = [[false; 8]; 8];
+
+        let black_attacks = [[false; 8]; 8];
+
         return Board {
             board_array,
             colour_array,
+            white_attacks,
+            black_attacks,
             a1_rook_not_moved: true,
             a8_rook_not_moved: true,
             h1_rook_not_moved: true,
@@ -83,6 +91,36 @@ impl Board {
             running_evaluation: 0,
             player_colour: 1,
         };
+    }
+    pub fn get_attacking_squares(&self, colour: i8) -> [[bool; 8]; 8] {
+        if colour == WHITE {
+            return self.white_attacks;
+        } else {
+            return self.black_attacks;
+        }
+    }
+    pub fn set_attacking_squares_for_piece(
+        &mut self,
+        colour: i8,
+        location: (usize, usize),
+        piece_type: i8,
+    ) {
+        //
+        let mut attacking_squares = self.get_attacking_squares(colour);
+    }
+    pub fn get_fen(&self) -> String {
+        return "".to_string();
+    }
+    pub fn remove_attacking_squares_for_piece(
+        &mut self,
+        colour: i8,
+        location: (usize, usize),
+        piece_type: i8,
+    ) {
+        //
+        let mut attacking_squares = self.get_attacking_squares(colour);
+
+        // piece is being removed from board
     }
     pub fn reset_board(&mut self) {
         self.board_array = [
@@ -216,8 +254,11 @@ impl Board {
         self.en_passant = move_to_do.en_passant;
         self.en_passant_location = Some(move_to_do.to);
 
-        self.board_array[move_to_do.to.0][move_to_do.to.1] =
-            self.board_array[move_to_do.from.0][move_to_do.from.1];
+        // hanbdle promotion here.
+
+        self.board_array[move_to_do.to.0][move_to_do.to.1] = move_to_do
+            .promotion_to
+            .unwrap_or(self.board_array[move_to_do.from.0][move_to_do.from.1]);
 
         self.board_array[move_to_do.from.0][move_to_do.from.1] = 0;
 
@@ -241,6 +282,26 @@ impl Board {
             } else if move_to_do.from == (2, 2) {
                 self.a8_rook_not_moved = false;
             } else if move_to_do.from == (2, 9) {
+                self.h8_rook_not_moved = false;
+            }
+        }
+
+        // need to know if a rook has been captured
+        // need to know if castling
+        if move_to_do.to_piece == ROOK
+            && (self.a1_rook_not_moved
+                || self.a8_rook_not_moved
+                || self.h1_rook_not_moved
+                || self.h8_rook_not_moved)
+        {
+            // check if rook moved from a1 or h1 or a8 or h8
+            if move_to_do.to == (9, 2) {
+                self.a1_rook_not_moved = false;
+            } else if move_to_do.to == (9, 9) {
+                self.h1_rook_not_moved = false;
+            } else if move_to_do.to == (2, 2) {
+                self.a8_rook_not_moved = false;
+            } else if move_to_do.to == (2, 9) {
                 self.h8_rook_not_moved = false;
             }
         }
@@ -417,7 +478,8 @@ impl Board {
         }
 
         // should be in format e2e3
-        if chess_move.len() != 4 && chess_move.len() != 5 {
+        if chess_move.len() < 4 || chess_move.len() > 5 {
+            // println!("{}", chess_move.len());
             return Err("not equal to 4 or 5 characters".to_string());
         }
         for (index, char) in chess_move.chars().enumerate() {
@@ -577,7 +639,7 @@ impl Board {
         // this could also be used to move the king out of check
         let opposing_side = if side == WHITE { BLACK } else { WHITE };
         let king_location = self.get_king_location(side);
-        let mut moves_attacking_king = generate_pseudo_legal_moves(&self.clone(), opposing_side);
+        let mut moves_attacking_king = generate_pseudo_legal_moves(&self.clone(), opposing_side, 1);
 
         moves_attacking_king.retain(|x| x.to == king_location);
 

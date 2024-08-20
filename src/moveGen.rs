@@ -1,5 +1,38 @@
-use crate::{board::*, constants::*, conversion::*, moves::*};
+use std::vec;
 
+use rand::seq::index;
+
+use crate::{board::*, constants::*, conversion::*, evaluate::*, moves::*};
+
+pub struct CastlingSquaresAttacked {
+    pub d1_attacked: bool,
+    pub c1_attacked: bool,
+    pub e1_attacked: bool,
+    pub f1_attacked: bool,
+    pub g1_attacked: bool,
+    pub d8_attacked: bool,
+    pub c8_attacked: bool,
+    pub e8_attacked: bool,
+    pub f8_attacked: bool,
+    pub g8_attacked: bool,
+}
+
+impl Default for CastlingSquaresAttacked {
+    fn default() -> Self {
+        return CastlingSquaresAttacked {
+            d1_attacked: false,
+            c1_attacked: false,
+            e1_attacked: false,
+            f1_attacked: false,
+            g1_attacked: false,
+            d8_attacked: false,
+            c8_attacked: false,
+            e8_attacked: false,
+            f8_attacked: false,
+            g8_attacked: false,
+        };
+    }
+}
 pub fn generate_pawn_moves(
     square: (usize, usize),
     side_to_generate_for: i8,
@@ -93,24 +126,58 @@ pub fn generate_pawn_moves(
         && square_attack_colour != -1
         && square_attack_colour != 0
     {
-        moves.push(Move {
-            from: square,
-            from_piece: PAWN,
-            to: (index_of_square_in_front, column + 1),
-            to_piece: square_attack_piece,
-            from_colour: side_to_generate_for,
-            to_colour: enemy_color,
-            notation_move: convert_array_location_to_notation(
-                square,
-                (index_of_square_in_front, column + 1),
-                None,
-            ),
-            en_passant: false,
+        // if in the promotion row, you must also promote
+        if row == promotion_row {
+            for piece in [KNIGHT, BISHOP, ROOK, QUEEN] {
+                moves.push(Move {
+                    from: square,
+                    from_piece: PAWN,
+                    to: (index_of_square_in_front, column + 1),
+                    to_piece: square_attack_piece,
+                    from_colour: side_to_generate_for,
+                    to_colour: enemy_color,
+                    notation_move: convert_array_location_to_notation(
+                        square,
+                        (index_of_square_in_front, column + 1),
+                        Some(match piece {
+                            1 => 'p'.to_string(),
+                            2 => 'n'.to_string(),
+                            3 => 'b'.to_string(),
+                            4 => 'r'.to_string(),
+                            5 => 'q'.to_string(),
+                            6 => 'k'.to_string(),
+                            0 => ' '.to_string(),
+                            -1 => ' '.to_string(),
+                            _ => ' '.to_string(),
+                        }),
+                    ),
+                    en_passant: false,
 
-            promotion_to: None,
-            castle_from_to_square: None,
-            sort_score: 0,
-        });
+                    promotion_to: Some(piece),
+                    castle_from_to_square: None,
+                    sort_score: 0,
+                });
+            }
+        } else {
+            moves.push(Move {
+                from: square,
+                from_piece: PAWN,
+                to: (index_of_square_in_front, column + 1),
+                to_piece: square_attack_piece,
+                from_colour: side_to_generate_for,
+                to_colour: enemy_color,
+                notation_move: convert_array_location_to_notation(
+                    square,
+                    (index_of_square_in_front, column + 1),
+                    None,
+                ),
+                en_passant: false,
+
+                promotion_to: None,
+                castle_from_to_square: None,
+                sort_score: 0,
+            });
+        }
     }
     // attack other diagonal
     square_attack_colour = board.colour_array[index_of_square_in_front][column - 1];
@@ -119,24 +186,58 @@ pub fn generate_pawn_moves(
         && square_attack_colour != -1
         && square_attack_colour != 0
     {
-        moves.push(Move {
-            from: square,
-            from_piece: PAWN,
-            to: (index_of_square_in_front, column - 1),
-            to_piece: square_attack_piece,
-            from_colour: side_to_generate_for,
-            to_colour: enemy_color,
-            notation_move: convert_array_location_to_notation(
-                square,
-                (index_of_square_in_front, column - 1),
-                None,
-            ),
-            en_passant: false,
+        // if in the promotion row, you must also promote
+        if row == promotion_row {
+            for piece in [KNIGHT, BISHOP, ROOK, QUEEN] {
+                moves.push(Move {
+                    from: square,
+                    from_piece: PAWN,
+                    to: (index_of_square_in_front, column - 1),
+                    to_piece: square_attack_piece,
+                    from_colour: side_to_generate_for,
+                    to_colour: enemy_color,
+                    notation_move: convert_array_location_to_notation(
+                        square,
+                        (index_of_square_in_front, column - 1),
+                        Some(match piece {
+                            1 => 'p'.to_string(),
+                            2 => 'n'.to_string(),
+                            3 => 'b'.to_string(),
+                            4 => 'r'.to_string(),
+                            5 => 'q'.to_string(),
+                            6 => 'k'.to_string(),
+                            0 => ' '.to_string(),
+                            -1 => ' '.to_string(),
+                            _ => ' '.to_string(),
+                        }),
+                    ),
+                    en_passant: false,
 
-            promotion_to: None,
-            castle_from_to_square: None,
-            sort_score: 0,
-        });
+                    promotion_to: Some(piece),
+                    castle_from_to_square: None,
+                    sort_score: 0,
+                });
+            }
+        } else {
+            moves.push(Move {
+                from: square,
+                from_piece: PAWN,
+                to: (index_of_square_in_front, column - 1),
+                to_piece: square_attack_piece,
+                from_colour: side_to_generate_for,
+                to_colour: enemy_color,
+                notation_move: convert_array_location_to_notation(
+                    square,
+                    (index_of_square_in_front, column - 1),
+                    None,
+                ),
+                en_passant: false,
+
+                promotion_to: None,
+                castle_from_to_square: None,
+                sort_score: 0,
+            });
+        }
     }
 
     if row == starting_row {
@@ -462,7 +563,51 @@ pub fn generate_king_moves(
     square: (usize, usize),
     side_to_generate_for: i8,
     board: &Board,
+    king_check_depth: i8,
 ) -> Vec<Move> {
+    // get sides king location
+    // let king_location = board.get_king_location(side_to_generate_for);
+    let mut opponent_moves: Vec<Move> = vec![];
+    // generate opponent moves
+    if king_check_depth > 0 {
+        opponent_moves = generate_pseudo_legal_moves(
+            board,
+            if side_to_generate_for == WHITE {
+                BLACK
+            } else {
+                WHITE
+            },
+            king_check_depth - 1,
+        );
+    }
+
+    // when castling, take into account that the king is moving through the squares, not teleporting
+    // only for those squares castling still possible
+    let mut castling_squares_being_attacked = CastlingSquaresAttacked::default();
+
+    if !board.has_king_moved
+        && (board.a1_rook_not_moved
+            || board.h1_rook_not_moved
+            || board.a8_rook_not_moved
+            || board.h8_rook_not_moved)
+    {
+        for enemy_move in &opponent_moves {
+            match enemy_move.to {
+                (9, 5) => castling_squares_being_attacked.d1_attacked = true, //d1
+                (9, 4) => castling_squares_being_attacked.c1_attacked = true, //c1
+                (9, 6) => castling_squares_being_attacked.e1_attacked = true, //e1
+                (9, 7) => castling_squares_being_attacked.f1_attacked = true, //f1
+                (9, 8) => castling_squares_being_attacked.g1_attacked = true, //g1
+                (2, 5) => castling_squares_being_attacked.d8_attacked = true, //d8
+                (2, 4) => castling_squares_being_attacked.c8_attacked = true, //c8
+                (2, 6) => castling_squares_being_attacked.e8_attacked = true, //e8
+                (2, 7) => castling_squares_being_attacked.f8_attacked = true, //f8
+                (2, 8) => castling_squares_being_attacked.g8_attacked = true, //g8
+                _ => {}
+            }
+        }
+    }
+
     let mut moves: Vec<Move> = vec![];
     // let _enemy_color = if side_to_generate_for == 1 { 2 } else { 1 };
     let (row, column) = square;
@@ -481,15 +626,28 @@ pub fn generate_king_moves(
         let square_move = board.colour_array[(row as isize + direction.0) as usize]
             [(column as isize + direction.1) as usize];
 
+        let mut move_is_legal = true;
         if square_move == -1 || square_move == side_to_generate_for {
             continue;
         }
-
+        // check not in attacked squares
+        for enemy_move in &opponent_moves {
+            if enemy_move.to.0 == ((row as isize + direction.0) as usize)
+                && enemy_move.to.1 == ((column as isize + direction.1) as usize)
+            {
+                move_is_legal = false;
+                break;
+            }
+        }
+        if !move_is_legal {
+            continue;
+        }
         //get to piece type
         let to_piece_type = board.board_array[(row as isize + direction.0) as usize]
             [(column as isize + direction.1) as usize];
         let to_square_colour = board.colour_array[(row as isize + direction.0) as usize]
             [(column as isize + direction.1) as usize];
+
         moves.push(Move {
             from: square,
             from_piece: KING,
@@ -528,7 +686,12 @@ pub fn generate_king_moves(
                 && board.is_square_empty("b1")
                 && board.is_square_empty("c1")
                 && board.is_square_empty("d1")
+                && !castling_squares_being_attacked.c1_attacked
+                && !castling_squares_being_attacked.d1_attacked
+                && !castling_squares_being_attacked.e1_attacked
             {
+                //check if moving into d1 is check.
+
                 moves.push(Move {
                     from: square,
                     from_piece: KING,
@@ -548,7 +711,12 @@ pub fn generate_king_moves(
                     sort_score: 0,
                 });
             }
-            if board.h1_rook_not_moved && board.is_square_empty("f1") && board.is_square_empty("g1")
+            if board.h1_rook_not_moved
+                && board.is_square_empty("f1")
+                && board.is_square_empty("g1")
+                && !castling_squares_being_attacked.f1_attacked
+                && !castling_squares_being_attacked.g1_attacked
+                && !castling_squares_being_attacked.e1_attacked
             {
                 moves.push(Move {
                     from: square,
@@ -576,6 +744,9 @@ pub fn generate_king_moves(
                 && board.is_square_empty("b8")
                 && board.is_square_empty("c8")
                 && board.is_square_empty("d8")
+                && !castling_squares_being_attacked.c8_attacked
+                && !castling_squares_being_attacked.d8_attacked
+                && !castling_squares_being_attacked.e8_attacked
             {
                 moves.push(Move {
                     from: square,
@@ -596,7 +767,12 @@ pub fn generate_king_moves(
                     sort_score: 0,
                 });
             }
-            if board.h8_rook_not_moved && board.is_square_empty("f8") && board.is_square_empty("g8")
+            if board.h8_rook_not_moved
+                && board.is_square_empty("f8")
+                && board.is_square_empty("g8")
+                && !castling_squares_being_attacked.f8_attacked
+                && !castling_squares_being_attacked.g8_attacked
+                && !castling_squares_being_attacked.e8_attacked
             {
                 moves.push(Move {
                     from: square,
@@ -623,7 +799,11 @@ pub fn generate_king_moves(
     return moves;
 }
 
-pub fn generate_pseudo_legal_moves(board: &Board, side_to_generate_for: i8) -> Vec<Move> {
+pub fn generate_pseudo_legal_moves(
+    board: &Board,
+    side_to_generate_for: i8,
+    king_check_depth: i8,
+) -> Vec<Move> {
     let mut moves: Vec<Move> = vec![];
 
     // go through each piece on the board, by colour to only get moves for side to move.
@@ -642,9 +822,12 @@ pub fn generate_pseudo_legal_moves(board: &Board, side_to_generate_for: i8) -> V
                 3 => generate_bishop_moves(location, side_to_generate_for, board),
                 4 => generate_rook_moves(location, side_to_generate_for, board),
                 5 => generate_queen_moves(location, side_to_generate_for, board),
-                6 => generate_king_moves(location, side_to_generate_for, board),
+                6 => generate_king_moves(location, side_to_generate_for, board, king_check_depth),
                 _ => vec![],
             };
+
+            //check for all the non king pieces if they are attacking the castling squares
+
             moves.append(&mut generated_moves);
         }
     }

@@ -2,16 +2,18 @@ use crate::board::Board;
 use crate::constants;
 use crate::evaluate;
 pub fn convert_fen_to_board(fen: &str) -> Board {
+    // implementation here
+
     // split by whitespace
 
     let mut board = Board::init();
 
     board.clear_board();
 
-    board.h8_rook_not_moved = true;
-    board.a8_rook_not_moved = true;
-    board.h1_rook_not_moved = true;
-    board.a1_rook_not_moved = true;
+    board.h8_rook_not_moved = false;
+    board.a8_rook_not_moved = false;
+    board.h1_rook_not_moved = false;
+    board.a1_rook_not_moved = false;
 
     // board is 12 x 12, but fen is 8x8. Need to convert
     // board starts at 2,2 to 2,10
@@ -132,7 +134,7 @@ pub fn convert_fen_to_board(fen: &str) -> Board {
     }
 
     // update running eval
-    board.running_evaluation = evaluate::evaluate(&board);
+    // board.running_evaluation = evaluate::evaluate(&board);
 
     return board;
 }
@@ -149,9 +151,9 @@ pub fn get_piece_square_value(location: (usize, usize), piece_type: i8, colour: 
             _ => 0,
         };
     } else {
-        if (8 - (location.0 as i8 - 2)) < 0 || (8 - (location.1 as i8 - 2)) < 0 {
-            println!("{} {} {} {} ", location.0, location.1, piece_type, colour,);
-        }
+        // if (8 - (location.0 as i8 - 2)) < 0 || (8 - (location.1 as i8 - 2)) < 0 {
+        println!("{} {} {} {} ", location.0, location.1, piece_type, colour,);
+        // }
         return match piece_type {
             constants::PAWN => constants::MG_PAWN_TABLE[7 - (location.0 - 2)][7 - (location.1 - 2)],
             constants::KNIGHT => {
@@ -215,4 +217,20 @@ pub fn convert_notation_to_location(chess_move: &str) -> Option<(usize, usize)> 
         }
     }
     return Some(location);
+}
+/// convert current board state into fen
+pub fn convert_board_to_fen(board: &Board) -> String {
+    let fen_string = String::new();
+
+    // loop over each rank, adding to fen string
+
+    // then add the color (w / b) whose turn it is
+
+    // then add the castling rights (KQkq)
+
+    // then add the en passant square (e3) - the square behind the pawn
+
+    // then add the halfmove clock (h3) - how many halfmoves since the last capture or pawn advancement
+
+    return fen_string;
 }

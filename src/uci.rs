@@ -1,131 +1,265 @@
 //! used to communicate with the engine
+use crate::board;
 use crate::board::*;
 use crate::search::*;
+use crate::uci;
 use crate::{conversion::*, evaluate::*, movegen::*};
 use std::io;
-const NAME: &str = "rust_chess";
-const VERSION: &str = "0.1";
-const HELP: &str = "uci commands \n\
- bench - run buit in bench";
 
-pub struct Data {
-    uci_enabled: bool,
-    debug_enabled: bool,
+const NAME: &str = "ChooChoo";
+const VERSION: &str = "0.1";
+const HELP: &str = "bench - run buit in bench";
+const AUTHOR: &str = "Tierynn Byrnes";
+const CHOO_CHOO_TRAIN: &str = r"
+____
+|DD|____T_
+|_ |_____|<
+@-@-@-oo\ ";
+
+pub enum CommandTypes {
+    Uci,
+    IsReady,
+    Position,
+    NewGame,
+    Go,
+    PrintState,
+    Evaluate,
+    Perft,
+    MakeMove,
+    Bench,
+    GetFen,
+    Empty,
+    Invalid, //
+    Quit,    //
+    Search,  //
+    Help,
 }
+
+pub struct CommunicationManager {
+    uci_enabled: bool,
+    // debug_enabled: bool,
+    board: Board,
+    engine: SearchEngine,
+}
+pub struct UciCommandOptions {
+    // no option supported atm
+}
+impl CommunicationManager {
+    pub fn new() -> Self {
+        CommunicationManager {
+            uci_enabled: false,
+            // debug_enabled: false,
+            board: Board::init(),
+            engine: SearchEngine::new(),
+        }
+    }
+    pub fn quit() {
+        println!("bye");
+        std::process::exit(0);
+    }
+    pub fn get_first_command(first_command: &str) -> CommandTypes {
+        match first_command {
+            "uci" => CommandTypes::Uci,
+            "isready" => CommandTypes::IsReady,
+            "position" => CommandTypes::Position,
+            "go" => CommandTypes::Go,
+            "quit" => CommandTypes::Quit,
+            "printstate" | "show" | "print" => CommandTypes::PrintState,
+            "evaluate" => CommandTypes::Evaluate,
+            "perft" => CommandTypes::Perft,
+            // "splitperft" => CommandTypes::SplitPerft,
+            // "perftsuite" => CommandTypes::PerftSuite,
+            "makemove" => CommandTypes::MakeMove,
+            "bench" => CommandTypes::Bench,
+            "help" => CommandTypes::Help,
+            _ => CommandTypes::Invalid,
+        }
+    }
+    pub fn position(&mut self, command_text: &str) {
+        // first token should be "position"
+        // second token should be "fen" or "startpos"
+        // if fen, is followed by a 6 space separated tokens
+
+        // after that, can be "moves".
+        // if so, it can be followed by a list of moves.
+        let mut command_text_split = command_text.split_ascii_whitespace();
+        let _first_token = command_text_split.next().expect("no token");
+        let second_token = command_text_split.next().expect("no token");
+
+        if second_token == "startpos" {
+            self.board = Board::init();
+        }
+
+        if second_token == "fen" {
+            let mut fen_string = String::new();
+            for _fen_tokens in 1..7 {
+                fen_string.push_str(format!("{} ", command_text_split.next().unwrap()).as_str());
+            }
+            println!("fen: {}", fen_string);
+            self.board = convert_fen_to_board(fen_string.as_str());
+        }
+
+        let mut moves_token = second_token;
+        if second_token != "moves" {
+            moves_token = command_text_split.next().unwrap_or_default();
+        }
+
+        println!("moves token: {}", moves_token);
+        if moves_token == "moves" {
+            for move_token in command_text_split {
+                println!("move: {}", move_token);
+                self.board
+                    .make_move_with_notation(move_token.to_string())
+                    .expect("invalid move");
+            }
+        }
+    }
+    pub fn evaluate(&self) {
+        println!(
+            "{}, {}",
+            evaluate(&self.board),
+            self.board.running_evaluation
+        );
+    }
+    pub fn bench(&self) {
+        // run a number of benchmark positions
+        // adding up nodes searched and time
+    }
+    pub fn search(&mut self, command_text: &str) {
+        match command_text.split_ascii_whitespace().next() {
+            None => println!("no more commands"),
+            Some(arg_2) => {
+                self.engine = SearchEngine::new();
+                let depth: i8 = arg_2.parse().expect("Invalid depth value");
+                let outcome = self.engine.search(&mut self.board, depth);
+                println!(
+                    "nodes: {}, time:{:?}, nodes per second: {}",
+                    self.engine.nodes,
+                    self.engine.start.elapsed().as_micros(),
+                    self.engine.nodes as f32 / self.engine.start.elapsed().as_secs_f32()
+                );
+                println!(
+                    "best move {}, score {}",
+                    outcome[0].best_move.notation_move, outcome[0].best_score
+                );
+            }
+        }
+    }
+    pub fn make_move(&mut self, command_text: &str) {
+        let mut command_token_split = command_text.split_ascii_whitespace();
+        let _first_token = command_token_split.next().expect("no token");
+
+        match command_token_split.next() {
+            None => println!("no more commands"),
+            Some(arg_2) => {
+                let outcome = self.board.make_move_with_notation(arg_2.to_string());
+                match outcome {
+                    Ok(m) => {
+                        println!(
+                            "made the mode: from {},{}, to: {},{}, notation: {}",
+                            m.from.0, m.from.1, m.to.0, m.to.1, m.notation_move
+                        );
+                        println!("piece that move {}", m.from_piece);
+                        println!(" to piece  {}", m.to_piece);
+                        // board.un_make_move(m);
+                        print_board(&self.board);
+                    }
+                    Err(e) => println!("{}", e),
+                }
+            }
+        }
+    }
+
+    pub fn perft(&mut self, command_text: &str) {
+        let depth: i8 = command_text
+            .split_ascii_whitespace()
+            .nth(1)
+            .expect("Invalid depth value")
+            .parse()
+            .expect("Invalid depth value");
+
+        self.engine.perft(&mut self.board, depth, true);
+        println!("total nodes: {}", self.engine.nodes);
+        println!("root moves: {}", self.engine.move_nodes.len());
+        for root in self.engine.move_nodes.iter() {
+            println!("{} - {}", root.move_notation, root.nodes);
+        }
+        println!()
+    }
+    pub fn enable_uci(&mut self) {
+        self.uci_enabled = true;
+        println!("id name {}", NAME);
+        println!("id author {}", AUTHOR);
+        // output all the options curently supported
+    }
+    pub fn go(&mut self, command_text: &str) {
+        let mut command_text_split = command_text.split_ascii_whitespace();
+        let _first_token = command_text_split.next().expect("no token");
+
+        while let Some(token) = command_text_split.next() {
+            println!("token: {}", token);
+
+            match token {
+                "wtime" => println!("white has {:?} time left", command_text_split.next()),
+                "btime" => println!("black has {:?} time left", command_text_split.next()),
+                "winc" => println!("white increment {:?}", command_text_split.next()),
+                "binc" => println!("black increment {:?}", command_text_split.next()),
+                "movestogo" => println!("moves to go {:?}", command_text_split.next()),
+                "depth" => println!("depth {:?}", command_text_split.next()),
+                _ => {}
+            }
+        }
+        let moves = self.engine.search(&mut self.board, 3);
+        println!("best move: {}", moves[0].best_move.notation_move);
+        // return moves[0];
+        // do the search with the provided settings
+    }
+}
+
 pub fn run() {
     println!("{} {}", NAME, VERSION);
+    println!("{}", CHOO_CHOO_TRAIN);
 
-    let mut board = Board::init();
-    let mut search_engine = SearchEngine::new();
     let stdin = io::stdin();
 
-    // loop over the user inputs
+    let mut manager = CommunicationManager::new();
+
     loop {
         let mut buffer = String::new();
         stdin.read_line(&mut buffer).expect("Failed to read line");
-        let mut inputs = buffer.trim().split(' ');
 
-        match inputs.next() {
-            None => println!("should have provided a command"),
-            Some(arg) => match arg {
-                "help" => println!("{}", HELP),
-                "hash" => println!("{}", board.hash_board_state()),
-                "bench" => println!("run bench"),
-                "uci" => println!("enable uci mode"),
-                "debug" => println!("turn debug mode on or off"),
-                "isSideInCheck" => println!("{}", board.is_side_in_check(board.side_to_move)),
-                "isready" => println!("yeah lets go"),
-                "reset_board" => board.reset_board(),
-                "printBoard" => print_board(&board),
-                "IsRepeated" => println!("{}", board.has_positions_repeated()),
-                "search" => match inputs.next() {
-                    None => println!("no more commands"),
-                    Some(arg_2) => {
-                        search_engine = SearchEngine::new();
-                        let depth: i8 = arg_2.parse().expect("Invalid depth value");
-                        let outcome = search_engine.search(&mut board, depth);
-                        println!(
-                            "nodes: {}, time:{:?}, nodes per second: {}",
-                            search_engine.nodes,
-                            search_engine.start.elapsed().as_micros(),
-                            search_engine.nodes as f32
-                                / search_engine.start.elapsed().as_secs_f32()
-                        );
-                        println!(
-                            "best move {}, score {}",
-                            outcome[0].best_move.notation_move, outcome[0].best_score
-                        );
-                    }
-                },
-                "setoption" => match inputs.next() {
-                    None => println!("no more commands"),
-                    Some(arg_2) => println!("found a match for option {}", arg_2),
-                },
-                "getPieceValue" => {
-                    println!("{}", get_piece_square_value((8, 2), 1, 2));
-                }
-                "fen" => {
-                    let mut fen_string = String::new();
-                    for input in inputs {
-                        fen_string.push_str(input);
-                        fen_string.push(' ');
-                    }
+        let mut inputs = buffer.split_ascii_whitespace();
 
-                    fen_string.pop(); // remove the trailing space
-                    board = convert_fen_to_board(&fen_string);
-                }
+        let Some(first_command) = inputs.next() else {
+            println!("should have provided a command");
+            println!("{}", CHOO_CHOO_TRAIN);
+            continue;
+        };
 
-                "move" => match inputs.next() {
-                    None => println!("no more commands"),
-                    Some(arg_2) => {
-                        let outcome = board.make_move_with_notation(arg_2.to_string());
-                        match outcome {
-                            Ok(m) => {
-                                println!(
-                                    "made the mode: from {},{}, to: {},{}, notation: {}",
-                                    m.from.0, m.from.1, m.to.0, m.to.1, m.notation_move
-                                );
-                                println!("piece that move {}", m.from_piece);
-                                println!(" to piece  {}", m.to_piece);
-                                // board.un_make_move(m);
-                                print_board(&board);
-                            }
-                            Err(e) => println!("{}", e),
-                        }
-                    }
-                },
-                "eval" => {
-                    println!("{}, {}", evaluate(&board), board.running_evaluation);
-                }
-                "perft" => {
-                    // perft
-                    search_engine = SearchEngine::new();
-                    let depth: i8 = inputs
-                        .next()
-                        .expect("Invalid depth value")
-                        .parse()
-                        .expect("Invalid depth value");
+        let command = CommunicationManager::get_first_command(first_command);
 
-                    search_engine.perft(&mut board, depth, true);
-                    println!("total nodes: {}", search_engine.nodes);
-                    println!("root moves: {}", search_engine.move_nodes.len());
-                    for root in search_engine.move_nodes.iter() {
-                        println!("{} - {}", root.move_notation, root.nodes);
-                    }
-                    println!()
-                }
-                "generate" => {
-                    let side_to_move = board.side_to_move;
-                    let moves = generate_pseudo_legal_moves(&mut board, side_to_move);
-                    for (_index, generated_move) in moves.iter().enumerate() {
-                        println!("{}", generated_move.notation_move);
-                    }
-                    println!("total moves: {}", moves.len());
-                }
-                _ => {
-                    println!("unknown command {}", buffer);
-                }
-            },
+        match command {
+            CommandTypes::Uci => manager.enable_uci(),
+            CommandTypes::Quit => CommunicationManager::quit(),
+            CommandTypes::Position => manager.position(&buffer),
+            CommandTypes::Search => manager.search(&buffer),
+            CommandTypes::MakeMove => manager.make_move(&buffer),
+            CommandTypes::Perft => manager.perft(&buffer),
+            CommandTypes::Evaluate => manager.evaluate(),
+            CommandTypes::NewGame => manager.board.reset_board(),
+            CommandTypes::PrintState => print_board(&manager.board),
+            CommandTypes::Invalid => {
+                println!("invalid or unsupported command");
+            }
+            CommandTypes::Bench => manager.bench(),
+            CommandTypes::IsReady => println!("readyok"),
+            CommandTypes::Go => manager.go(&buffer),
+            CommandTypes::GetFen => println!("{}", manager.board.get_fen()),
+            CommandTypes::Help => {
+                println!("{}", HELP);
+                println!("{}", CHOO_CHOO_TRAIN)
+            }
+            _ => panic!("Choo Choo Trouble {}", CHOO_CHOO_TRAIN),
         }
         buffer.clear();
     }

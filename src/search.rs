@@ -1,7 +1,9 @@
 use crate::board::Board;
 use crate::constants::*;
+use crate::evaluate::*;
 use crate::movegen::*;
 use crate::moves::*;
+use std::env::set_current_dir;
 use std::time::Instant;
 pub struct MoveNode {
     pub move_notation: String,
@@ -55,7 +57,8 @@ impl SearchEngine {
         };
 
         // generate moves for current depth of board
-        let mut moves_for_current_depth = generate_pseudo_legal_moves(board, board.side_to_move);
+        let mut moves_for_current_depth =
+            generate_pseudo_legal_moves(board, board.side_to_move, depth);
         order_moves(&mut moves_for_current_depth);
         if maximizing_player {
             let mut max_eval = -1000;
@@ -100,7 +103,8 @@ impl SearchEngine {
         self.start = Instant::now();
 
         // generate moves for current depth of board
-        let mut moves_for_current_depth = generate_pseudo_legal_moves(board, board.side_to_move);
+        let mut moves_for_current_depth =
+            generate_pseudo_legal_moves(board, board.side_to_move, depth);
         order_moves(&mut moves_for_current_depth);
         for generated_move in moves_for_current_depth.iter() {
             board.make_move(generated_move);
@@ -128,17 +132,28 @@ impl SearchEngine {
         if depth == 0 {
             return;
         }
+
+        let current_side = board.side_to_move;
         // for a given fen, generate all moves down to given depth
         // and print the number of nodes generated
-        let moves_for_current_depth = generate_pseudo_legal_moves(board, board.side_to_move);
+        let moves_for_current_depth = generate_pseudo_legal_moves(board, board.side_to_move, depth);
 
         // append root node and count
         for generated_move in moves_for_current_depth.iter() {
+            // if player currently in check, only generate moves that do not leave them in check.
+            // let _in_check = is_in_check(board, current_side);
+
             board.make_move(generated_move);
             if !first_call {
                 self.nodes += 1;
             } else {
                 self.nodes = 0;
+            }
+
+            // check not moving self into check
+            if is_in_check(board, current_side) {
+                board.un_make_move(generated_move);
+                continue;
             }
 
             self.perft(board, depth - 1, false);
