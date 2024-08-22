@@ -4,7 +4,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::Hasher;
 #[derive(Clone)]
 pub struct PlyData {
-    pub ply: i8,
+    pub ply: i32,
     pub side_to_move: i8,
     has_king_moved: bool,
     a1_rook_not_moved: bool, // defaults to true
@@ -13,6 +13,7 @@ pub struct PlyData {
     h8_rook_not_moved: bool, // defaults to true
     en_passant: bool,
     en_passant_location: Option<(usize, usize)>,
+    running_eval: i32,
 }
 #[derive(Clone)]
 pub struct Board {
@@ -27,7 +28,7 @@ pub struct Board {
     pub h8_rook_not_moved: bool, // defaults to true
     pub en_passant: bool,
     pub en_passant_location: Option<(usize, usize)>,
-    pub ply: i8,
+    pub ply: i32,
     pub side_to_move: i8,
     pub hash_of_previous_positions: Vec<String>,
     pub ply_record: Vec<PlyData>,
@@ -215,7 +216,16 @@ impl Board {
         piece_type: i8,
         piece_colour: i8,
     ) {
-        let value = get_piece_square_value(location, piece_type, piece_colour);
+        let mut value = get_piece_square_value(location, piece_type, piece_colour);
+
+        value += match piece_type {
+            PAWN => 82,
+            KNIGHT => 337,
+            BISHOP => 365,
+            ROOK => 525,
+            QUEEN => 1025,
+            _ => 0,
+        };
         if piece_colour == self.player_colour {
             self.running_evaluation -= value;
         } else {
@@ -229,7 +239,16 @@ impl Board {
         piece_type: i8,
         piece_colour: i8,
     ) {
-        let value = get_piece_square_value(location, piece_type, piece_colour);
+        let mut value = get_piece_square_value(location, piece_type, piece_colour);
+        value += match piece_type {
+            PAWN => 82,
+            KNIGHT => 337,
+            BISHOP => 365,
+            ROOK => 525,
+            QUEEN => 1025,
+            _ => 0,
+        };
+
         if piece_colour == self.player_colour {
             self.running_evaluation += value;
         } else {
@@ -237,6 +256,9 @@ impl Board {
         }
     }
     pub fn make_move(&mut self, move_to_do: &Move) {
+        // println!("hash length: {}", self.hash_of_previous_positions.len());
+        // println!("ply_record length: {}", self.ply_record.len());
+
         // copy data to record
         self.ply_record.push(PlyData {
             ply: self.ply,
@@ -248,7 +270,31 @@ impl Board {
             h8_rook_not_moved: self.h8_rook_not_moved,
             en_passant: self.en_passant,
             en_passant_location: self.en_passant_location,
+            running_eval: self.running_evaluation,
         });
+
+        // if enpassant was set at board level, and a pawn just moved to an empty square, behind the en passant locaiton
+        // then remove the pawn at the en passant location.
+        if self.en_passant
+            && move_to_do.from_piece == PAWN
+            && move_to_do.to_piece == EMPTY
+            && move_to_do.to.1 == self.en_passant_location.unwrap_or((0, 0)).1
+            && self
+                .en_passant_location
+                .unwrap()
+                .1
+                .abs_diff(move_to_do.from.1)
+                == 1
+            && self.en_passant_location.unwrap().0 == move_to_do.from.0
+        {
+            // the player is doing en passant.
+            // so remove the pawn at the en passant location
+            self.board_array[self.en_passant_location.unwrap().0]
+                [self.en_passant_location.unwrap().1] = EMPTY;
+
+            self.colour_array[self.en_passant_location.unwrap().0]
+                [self.en_passant_location.unwrap().1] = EMPTY;
+        }
 
         // set board level en passant information
         self.en_passant = move_to_do.en_passant;
@@ -266,15 +312,38 @@ impl Board {
             self.colour_array[move_to_do.from.0][move_to_do.from.1];
 
         self.colour_array[move_to_do.from.0][move_to_do.from.1] = 0;
+        //print rook info
+        // println!("{}", move_to_do.from_piece);
+        // println!("{}", move_to_do.from.0);
+        // println!("{}", move_to_do.from.1);
 
         // need to know if castling
+        if move_to_do.from_piece == KING
+            && (self.a1_rook_not_moved
+                || self.a8_rook_not_moved
+                || self.h1_rook_not_moved
+                || self.h8_rook_not_moved)
+        {
+            // check if king moved from e1 or h1 or a8 or h8
+            if move_to_do.from == (9, 6) && move_to_do.to == (9, 4) {
+                self.a1_rook_not_moved = false;
+            } else if move_to_do.from == (9, 6) && move_to_do.to == (9, 8) {
+                self.h1_rook_not_moved = false;
+            } else if move_to_do.from == (2, 6) && move_to_do.to == (2, 4) {
+                self.a8_rook_not_moved = false;
+            } else if move_to_do.from == (2, 6) && move_to_do.to == (2, 8) {
+                self.h8_rook_not_moved = false;
+            }
+        }
+
+        // even if rook moves by itself, set rook not moved to false
         if move_to_do.from_piece == ROOK
             && (self.a1_rook_not_moved
                 || self.a8_rook_not_moved
                 || self.h1_rook_not_moved
                 || self.h8_rook_not_moved)
         {
-            // check if rook moved from a1 or h1 or a8 or h8
+            // check if king moved from e1 or h1 or a8 or h8
             if move_to_do.from == (9, 2) {
                 self.a1_rook_not_moved = false;
             } else if move_to_do.from == (9, 9) {
@@ -412,37 +481,58 @@ impl Board {
             self.h8_rook_not_moved = previous_ply_data.h8_rook_not_moved;
             self.en_passant = previous_ply_data.en_passant;
             self.en_passant_location = previous_ply_data.en_passant_location;
+            self.running_evaluation = previous_ply_data.running_eval;
+            self.player_colour = previous_ply_data.side_to_move;
+            // self.hash_of_previous_positions = previous_ply_data.;
+            // self.ply_record = previous_ply_data.ply_record;
         }
         self.ply_record.pop();
         //update evaluation
-        self.add_piece_to_evaluation(chess_move.to, chess_move.from_piece, chess_move.to_colour);
-        //update evaluation
-        // if promotion, add promotion piece
-        if chess_move.promotion_to.is_some() {
-            self.remove_piece_from_evaluation(
-                chess_move.to,
-                chess_move.promotion_to.unwrap(),
-                chess_move.from_colour,
-            );
-        } else {
-            self.remove_piece_from_evaluation(
-                chess_move.to,
-                chess_move.from_piece,
-                chess_move.from_colour,
-            );
-        }
-        self.add_piece_to_evaluation(
-            chess_move.from,
-            chess_move.from_piece,
-            chess_move.from_colour,
-        );
+        // self.add_piece_to_evaluation(chess_move.to, chess_move.from_piece, chess_move.to_colour);
+        // //update evaluation
+
+        // // if promotion, add promotion piece
+        // if chess_move.promotion_to.is_some() {
+        //     self.remove_piece_from_evaluation(
+        //         chess_move.to,
+        //         chess_move.promotion_to.unwrap(),
+        //         chess_move.from_colour,
+        //     );
+        // } else {
+        //     self.remove_piece_from_evaluation(
+        //         chess_move.to,
+        //         chess_move.from_piece,
+        //         chess_move.from_colour,
+        //     );
+        // }
+        // self.add_piece_to_evaluation(
+        //     chess_move.from,
+        //     chess_move.from_piece,
+        //     chess_move.from_colour,
+        // );
     }
 
-    pub fn convert_notation_to_move(&self, chess_move: String) -> Result<Move, String> {
+    pub fn convert_notation_to_move(&self, mut chess_move: String) -> Result<Move, String> {
         let mut converted_move = Move::default();
 
+        // convert "e1g1" "e1c1" "e8g8" "e8c8" into O-O or O-O-O
+        if !self.has_king_moved
+            && ((chess_move == "e1g1" && self.h1_rook_not_moved)
+                || (chess_move == "e1c1" && self.a1_rook_not_moved)
+                || (chess_move == "e8g8" && self.h8_rook_not_moved)
+                || (chess_move == "e8c8" && self.a8_rook_not_moved))
+        {
+            chess_move = match chess_move.as_str() {
+                "e1g1" => "O-O".to_string(),
+                "e1c1" => "O-O-O".to_string(),
+                "e8g8" => "O-O".to_string(),
+                "e8c8" => "O-O-O".to_string(),
+                _ => return Err("Invalid castling move".to_string()),
+            };
+        }
+
         // castling is a special case
-        if chess_move == "O-O" || chess_move == "O-O-O" {
+        if !self.has_king_moved && (chess_move == "O-O" || chess_move == "O-O-O") {
             let from_to_squares = match chess_move.as_str() {
                 "O-O" => {
                     if self.side_to_move == WHITE {

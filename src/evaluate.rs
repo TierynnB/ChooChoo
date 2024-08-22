@@ -12,20 +12,25 @@ pub fn evaluate(board: &Board) -> i32 {
             if square == -1 || square == EMPTY {
                 continue;
             }
-            // multiple score by eval_weights
+
             let mut score_for_piece_type = get_piece_square_value(location, square, *colour);
 
-            // println!(
-            //     "score_for_piece_type: {}, square: {}, colour: {}",
-            //     score_for_piece_type, square, colour
-            // );
+            score_for_piece_type += match square {
+                PAWN => 82,
+                KNIGHT => 337,
+                BISHOP => 365,
+                ROOK => 525,
+                QUEEN => 1025,
+                _ => 0,
+            };
             // if for other side, make negative.
             if colour != &board.side_to_move {
                 score_for_piece_type *= -1;
             }
-            // println!("{}, {}", square, colour);
-            // println!("score_for_piece_type: {}", score_for_piece_type);
+
             score += score_for_piece_type as i32;
+
+            // debug!("row {} column {} square {} {} {}", row_index, column_index, square, score_for_piece_type);
         }
     }
     return score;

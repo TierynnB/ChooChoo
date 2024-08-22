@@ -1,4 +1,4 @@
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Move {
     pub from: (usize, usize),
     pub from_piece: i8,

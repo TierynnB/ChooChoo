@@ -626,22 +626,11 @@ pub fn generate_king_moves(
         let square_move = board.colour_array[(row as isize + direction.0) as usize]
             [(column as isize + direction.1) as usize];
 
-        let mut move_is_legal = true;
+        // let mut move_is_legal = true;
         if square_move == -1 || square_move == side_to_generate_for {
             continue;
         }
-        // check not in attacked squares
-        for enemy_move in &opponent_moves {
-            if enemy_move.to.0 == ((row as isize + direction.0) as usize)
-                && enemy_move.to.1 == ((column as isize + direction.1) as usize)
-            {
-                move_is_legal = false;
-                break;
-            }
-        }
-        if !move_is_legal {
-            continue;
-        }
+
         //get to piece type
         let to_piece_type = board.board_array[(row as isize + direction.0) as usize]
             [(column as isize + direction.1) as usize];

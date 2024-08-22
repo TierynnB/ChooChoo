@@ -128,13 +128,13 @@ pub fn convert_fen_to_board(fen: &str) -> Board {
                 }
             } // en passant
             4 => {} // halfmove, i havent done this
-            5 => board.ply = section.parse::<i8>().unwrap(),
+            5 => board.ply = section.parse::<i32>().unwrap(),
             _ => {}
         }
     }
 
     // update running eval
-    // board.running_evaluation = evaluate::evaluate(&board);
+    board.running_evaluation = evaluate::evaluate(&board);
 
     return board;
 }
@@ -151,9 +151,6 @@ pub fn get_piece_square_value(location: (usize, usize), piece_type: i8, colour: 
             _ => 0,
         };
     } else {
-        // if (8 - (location.0 as i8 - 2)) < 0 || (8 - (location.1 as i8 - 2)) < 0 {
-        println!("{} {} {} {} ", location.0, location.1, piece_type, colour,);
-        // }
         return match piece_type {
             constants::PAWN => constants::MG_PAWN_TABLE[7 - (location.0 - 2)][7 - (location.1 - 2)],
             constants::KNIGHT => {

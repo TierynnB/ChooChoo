@@ -3,7 +3,7 @@ use crate::board;
 use crate::board::*;
 use crate::search::*;
 use crate::uci;
-use crate::{conversion::*, evaluate::*, movegen::*};
+use crate::{constants, conversion::*, evaluate::*, movegen::*};
 use std::io;
 
 const NAME: &str = "ChooChoo";
@@ -20,7 +20,9 @@ pub enum CommandTypes {
     Uci,
     IsReady,
     Position,
+    SetOption,
     NewGame,
+    UciNewGame,
     Go,
     PrintState,
     Evaluate,
@@ -67,17 +69,23 @@ impl CommunicationManager {
             "printstate" | "show" | "print" => CommandTypes::PrintState,
             "evaluate" => CommandTypes::Evaluate,
             "perft" => CommandTypes::Perft,
+            "newgame" => CommandTypes::NewGame,
+            "ucinewgame" => CommandTypes::UciNewGame,
+            "setoption" => CommandTypes::SetOption,
             // "splitperft" => CommandTypes::SplitPerft,
             // "perftsuite" => CommandTypes::PerftSuite,
             "makemove" => CommandTypes::MakeMove,
             "bench" => CommandTypes::Bench,
             "help" => CommandTypes::Help,
-            _ => CommandTypes::Invalid,
+            _ => {
+                println!("invalid command: {}", first_command);
+                CommandTypes::Invalid
+            }
         }
     }
     pub fn position(&mut self, command_text: &str) {
         // first token should be "position"
-        // second token should be "fen" or "startpos"
+        // second token should be "fen" or "startpos"ev
         // if fen, is followed by a 6 space separated tokens
 
         // after that, can be "moves".
@@ -104,10 +112,10 @@ impl CommunicationManager {
             moves_token = command_text_split.next().unwrap_or_default();
         }
 
-        println!("moves token: {}", moves_token);
+        // println!("moves token: {}", moves_token);
         if moves_token == "moves" {
             for move_token in command_text_split {
-                println!("move: {}", move_token);
+                // println!("move: {}", move_token);
                 self.board
                     .make_move_with_notation(move_token.to_string())
                     .expect("invalid move");
@@ -121,9 +129,35 @@ impl CommunicationManager {
             self.board.running_evaluation
         );
     }
-    pub fn bench(&self) {
-        // run a number of benchmark positions
-        // adding up nodes searched and time
+    pub fn bench(&mut self) {
+        println!("{}", CHOO_CHOO_TRAIN);
+        let mut nodes = 0;
+        let mut time_taken_micros = 0;
+        let mut time_taken_seconds: f32 = 0.00;
+        for bench_fen in constants::BENCH_FENS {
+            println!("bench fen: {}", bench_fen);
+            self.board = convert_fen_to_board(bench_fen);
+
+            self.engine.search(&mut self.board, 3);
+
+            nodes += self.engine.nodes;
+            time_taken_micros += self.engine.start.elapsed().as_micros();
+            time_taken_seconds += self.engine.start.elapsed().as_secs_f32();
+
+            // println!(
+            //     "nodes: {}, time:{:?}, nodes per second: {}",
+            //     self.engine.nodes,
+            //     self.engine.start.elapsed().as_micros(),
+            //     self.engine.nodes as f32 / self.engine.start.elapsed().as_secs_f32()
+            // );
+        }
+
+        println!(
+            "nodes: {}, time:{:?}, nodes per second: {}",
+            nodes,
+            time_taken_micros,
+            nodes as f32 / time_taken_seconds
+        );
     }
     pub fn search(&mut self, command_text: &str) {
         match command_text.split_ascii_whitespace().next() {
@@ -177,7 +211,7 @@ impl CommunicationManager {
             .expect("Invalid depth value")
             .parse()
             .expect("Invalid depth value");
-
+        self.engine = SearchEngine::new();
         self.engine.perft(&mut self.board, depth, true);
         println!("total nodes: {}", self.engine.nodes);
         println!("root moves: {}", self.engine.move_nodes.len());
@@ -190,6 +224,12 @@ impl CommunicationManager {
         self.uci_enabled = true;
         println!("id name {}", NAME);
         println!("id author {}", AUTHOR);
+
+        // not true yet
+        println!("option name Move Overhead type spin default 10 min 0 max 2000");
+        println!("option name Threads type spin default 1 min 1 max 1");
+        println!("option name Hash type spin default 0 min 0 max 0");
+        println!("uciok");
         // output all the options curently supported
     }
     pub fn go(&mut self, command_text: &str) {
@@ -197,20 +237,38 @@ impl CommunicationManager {
         let _first_token = command_text_split.next().expect("no token");
 
         while let Some(token) = command_text_split.next() {
-            println!("token: {}", token);
+            // println!("token: {}", token);
 
             match token {
-                "wtime" => println!("white has {:?} time left", command_text_split.next()),
-                "btime" => println!("black has {:?} time left", command_text_split.next()),
-                "winc" => println!("white increment {:?}", command_text_split.next()),
-                "binc" => println!("black increment {:?}", command_text_split.next()),
-                "movestogo" => println!("moves to go {:?}", command_text_split.next()),
-                "depth" => println!("depth {:?}", command_text_split.next()),
+                "wtime" => {
+                    self.engine.wtime = command_text_split.next().unwrap().parse::<i32>().unwrap()
+                }
+                "btime" => {
+                    self.engine.btime = command_text_split.next().unwrap().parse::<i32>().unwrap()
+                }
+                "winc" => {
+                    self.engine.winc = command_text_split.next().unwrap().parse::<i32>().unwrap()
+                }
+                "binc" => {
+                    self.engine.wtime = command_text_split.next().unwrap().parse::<i32>().unwrap()
+                }
+                "movestogo" => {
+                    self.engine.depth = command_text_split.next().unwrap().parse::<i8>().unwrap()
+                }
+                "depth" => {
+                    self.engine.depth = command_text_split.next().unwrap().parse::<i8>().unwrap()
+                }
                 _ => {}
             }
         }
         let moves = self.engine.search(&mut self.board, 3);
-        println!("best move: {}", moves[0].best_move.notation_move);
+        // for bestmoves in &moves {
+        //     println!(
+        //         "move: {}, score: {}",
+        //         bestmoves.best_move.notation_move, bestmoves.best_score
+        //     );
+        // }
+        println!("bestmove {}", moves[0].best_move.notation_move);
         // return moves[0];
         // do the search with the provided settings
     }
@@ -248,9 +306,12 @@ pub fn run() {
             CommandTypes::Evaluate => manager.evaluate(),
             CommandTypes::NewGame => manager.board.reset_board(),
             CommandTypes::PrintState => print_board(&manager.board),
+            CommandTypes::UciNewGame => {} // do nothing
             CommandTypes::Invalid => {
                 println!("invalid or unsupported command");
+                println!("{}", &buffer);
             }
+            CommandTypes::SetOption => {}
             CommandTypes::Bench => manager.bench(),
             CommandTypes::IsReady => println!("readyok"),
             CommandTypes::Go => manager.go(&buffer),
