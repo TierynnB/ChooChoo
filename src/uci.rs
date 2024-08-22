@@ -1,9 +1,8 @@
 //! used to communicate with the engine
-use crate::board;
+
 use crate::board::*;
 use crate::search::*;
-use crate::uci;
-use crate::{constants, conversion::*, evaluate::*, movegen::*};
+use crate::{constants, conversion::*, evaluate::*};
 use std::io;
 
 const NAME: &str = "ChooChoo";

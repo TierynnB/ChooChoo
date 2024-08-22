@@ -100,6 +100,13 @@ impl Board {
             return self.black_attacks;
         }
     }
+
+    pub fn get_piece(&self, location: (usize, usize)) -> i8 {
+        return self.board_array[location.0][location.1];
+    }
+    pub fn get_piece_colour(&self, location: (usize, usize)) -> i8 {
+        return self.colour_array[location.0][location.1];
+    }
     pub fn set_attacking_squares_for_piece(
         &mut self,
         colour: i8,
@@ -120,8 +127,6 @@ impl Board {
     ) {
         //
         let mut attacking_squares = self.get_attacking_squares(colour);
-
-        // piece is being removed from board
     }
     pub fn reset_board(&mut self) {
         self.board_array = [
