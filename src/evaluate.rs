@@ -13,9 +13,8 @@ pub fn evaluate(board: &Board) -> i32 {
                 continue;
             }
 
-            let mut score_for_piece_type = get_piece_square_value(location, square, *colour);
-
-            score_for_piece_type += match square {
+            // let mut score_for_piece_type = get_piece_square_value(location, square, *colour);
+            let mut score_for_piece_type = match square {
                 PAWN => 82,
                 KNIGHT => 337,
                 BISHOP => 365,

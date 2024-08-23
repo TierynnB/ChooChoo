@@ -59,7 +59,7 @@ impl SearchEngine {
     ) -> i32 {
         // the move needs to record its own evaluation
         if depth == 0 {
-            let mut running_evaluation = board.running_evaluation;
+            let running_evaluation = board.running_evaluation;
             // if board.side_to_move != WHITE {
             //     running_evaluation *= -1;
             // }
