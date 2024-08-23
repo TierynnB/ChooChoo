@@ -100,7 +100,8 @@ impl CommunicationManager {
         if second_token == "fen" {
             let mut fen_string = String::new();
             for _fen_tokens in 1..7 {
-                fen_string.push_str(format!("{} ", command_text_split.next().unwrap()).as_str());
+                fen_string
+                    .push_str(format!("{} ", command_text_split.next().unwrap_or("")).as_str());
             }
             println!("fen: {}", fen_string);
             self.board = convert_fen_to_board(fen_string.as_str());
