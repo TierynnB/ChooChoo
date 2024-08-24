@@ -64,6 +64,7 @@ impl CommunicationManager {
             "isready" => CommandTypes::IsReady,
             "position" => CommandTypes::Position,
             "go" => CommandTypes::Go,
+            "search" => CommandTypes::Search,
             "quit" => CommandTypes::Quit,
             "printstate" | "show" | "print" => CommandTypes::PrintState,
             "evaluate" => CommandTypes::Evaluate,
@@ -126,7 +127,7 @@ impl CommunicationManager {
         println!(
             "{}, {}",
             evaluate(&self.board),
-            self.board.running_evaluation
+            self.board.get_running_evaluation()
         );
     }
     pub fn bench(&mut self) {
@@ -143,13 +144,6 @@ impl CommunicationManager {
             nodes += self.engine.nodes;
             time_taken_micros += self.engine.start.elapsed().as_micros();
             time_taken_seconds += self.engine.start.elapsed().as_secs_f32();
-
-            // println!(
-            //     "nodes: {}, time:{:?}, nodes per second: {}",
-            //     self.engine.nodes,
-            //     self.engine.start.elapsed().as_micros(),
-            //     self.engine.nodes as f32 / self.engine.start.elapsed().as_secs_f32()
-            // );
         }
 
         println!(
@@ -160,11 +154,14 @@ impl CommunicationManager {
         );
     }
     pub fn search(&mut self, command_text: &str) {
-        match command_text.split_ascii_whitespace().next() {
+        let mut command_text_split = command_text.split_ascii_whitespace();
+        let _search_token = command_text_split.next().expect("no token");
+
+        match command_text_split.next() {
             None => println!("no more commands"),
             Some(arg_2) => {
                 self.engine = SearchEngine::new();
-                let depth: i8 = arg_2.parse().expect("Invalid depth value");
+                let depth: i8 = arg_2.parse::<i8>().expect("Invalid depth value");
                 let outcome = self.engine.search(&mut self.board, depth);
                 println!(
                     "nodes: {}, time:{:?}, nodes per second: {}",
@@ -172,6 +169,8 @@ impl CommunicationManager {
                     self.engine.start.elapsed().as_micros(),
                     self.engine.nodes as f32 / self.engine.start.elapsed().as_secs_f32()
                 );
+
+                // get random move from best moves with matching top score.
                 println!(
                     "best move {}, score {}",
                     outcome[0].best_move.notation_move, outcome[0].best_score
@@ -261,7 +260,7 @@ impl CommunicationManager {
                 _ => {}
             }
         }
-        let moves = self.engine.search(&mut self.board, 3);
+        let moves = self.engine.search(&mut self.board, 5);
         // for bestmoves in &moves {
         //     println!(
         //         "move: {}, score: {}",

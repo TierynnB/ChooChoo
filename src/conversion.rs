@@ -134,7 +134,7 @@ pub fn convert_fen_to_board(fen: &str) -> Board {
     }
 
     // update running eval
-    board.running_evaluation = evaluate::evaluate(&board);
+    board.set_running_evaluation(evaluate::evaluate(&board));
 
     return board;
 }

@@ -32,7 +32,7 @@ pub struct Board {
     pub side_to_move: i8,
     pub hash_of_previous_positions: Vec<String>,
     pub ply_record: Vec<PlyData>,
-    pub running_evaluation: i32,
+    running_evaluation: i32,
     pub player_colour: i8,
 }
 
@@ -221,9 +221,10 @@ impl Board {
         piece_type: i8,
         piece_colour: i8,
     ) {
-        let mut value = get_piece_square_value(location, piece_type, piece_colour);
+        // running eval is always from whites perspective
+        // let mut value = get_piece_square_value(location, piece_type, piece_colour);
 
-        value += match piece_type {
+        let value = match piece_type {
             PAWN => 82,
             KNIGHT => 337,
             BISHOP => 365,
@@ -231,12 +232,28 @@ impl Board {
             QUEEN => 1025,
             _ => 0,
         };
-        if piece_colour == self.player_colour {
+        if piece_colour == WHITE {
             self.running_evaluation -= value;
         } else {
             self.running_evaluation += value;
         }
         // println!("running_evaluation: {}", self.running_evaluation);
+    }
+    pub fn get_running_evaluation(&self) -> i32 {
+        // if white to move, return running evaluation, else return -running evaluation
+        if self.side_to_move == WHITE {
+            return self.running_evaluation;
+        } else {
+            return -self.running_evaluation;
+        }
+    }
+    pub fn set_running_evaluation(&mut self, running_evaluation: i32) {
+        // if white to move, return running evaluation, else return -running evaluation
+        if self.side_to_move == WHITE {
+            self.running_evaluation = running_evaluation;
+        } else {
+            self.running_evaluation = -running_evaluation;
+        }
     }
     pub fn add_piece_to_evaluation(
         &mut self,
@@ -244,8 +261,8 @@ impl Board {
         piece_type: i8,
         piece_colour: i8,
     ) {
-        let mut value = get_piece_square_value(location, piece_type, piece_colour);
-        value += match piece_type {
+        // let mut value = get_piece_square_value(location, piece_type, piece_colour);
+        let value = match piece_type {
             PAWN => 82,
             KNIGHT => 337,
             BISHOP => 365,
@@ -254,7 +271,7 @@ impl Board {
             _ => 0,
         };
 
-        if piece_colour == self.player_colour {
+        if piece_colour == WHITE {
             self.running_evaluation += value;
         } else {
             self.running_evaluation -= value;

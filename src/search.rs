@@ -59,13 +59,11 @@ impl SearchEngine {
     ) -> i32 {
         // the move needs to record its own evaluation
         if depth == 0 {
-            let running_evaluation = board.running_evaluation;
-            // if board.side_to_move != WHITE {
-            //     running_evaluation *= -1;
-            // }
+            let running_evaluation = board.get_running_evaluation();
+
             return running_evaluation;
         };
-
+        let side_to_move = board.side_to_move;
         // generate moves for current depth of board
         let mut moves_for_current_depth = generate_pseudo_legal_moves(board, board.side_to_move, 1);
         order_moves(&mut moves_for_current_depth);
@@ -73,9 +71,11 @@ impl SearchEngine {
             let mut max_eval = -1000;
             for generated_move in moves_for_current_depth.iter() {
                 board.make_move(generated_move);
+
                 self.nodes += 1;
 
                 let eval = self.minimax(board, depth - 1, false, alpha, beta);
+
                 board.un_make_move(generated_move);
                 max_eval = std::cmp::max(max_eval, eval);
                 alpha = std::cmp::max(alpha, eval);
@@ -91,9 +91,11 @@ impl SearchEngine {
             for generated_move in moves_for_current_depth.iter() {
                 board.make_move(generated_move);
                 self.nodes += 1;
+
                 let eval = self.minimax(board, depth - 1, true, alpha, beta);
+
                 board.un_make_move(generated_move);
-                min_eval = std::cmp::max(min_eval, eval);
+                min_eval = std::cmp::min(min_eval, eval);
                 beta = std::cmp::min(beta, eval);
                 if beta <= alpha {
                     break;
@@ -123,8 +125,11 @@ impl SearchEngine {
                 continue;
             }
 
-            // print_board(board);
-            let score = self.minimax(board, depth, true, i32::MIN, i32::MAX);
+            let mut score = self.minimax(board, depth, true, i32::MIN, i32::MAX);
+            println!(
+                "colour: {}, root move: {}, eval: {}",
+                current_side, generated_move.notation_move, score
+            );
 
             if score > best_score {
                 best_score = score;
@@ -138,7 +143,9 @@ impl SearchEngine {
             board.un_make_move(generated_move);
             // print_board(board);
         }
+
         best_moves.sort_by(|a, b| b.best_score.cmp(&a.best_score));
+
         return best_moves;
     }
 
