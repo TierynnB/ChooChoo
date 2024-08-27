@@ -1,6 +1,6 @@
 use crate::board::Board;
 use crate::constants;
-use crate::evaluate;
+// use crate::evaluate;
 pub fn convert_fen_to_board(fen: &str) -> Board {
     // implementation here
 
@@ -21,24 +21,24 @@ pub fn convert_fen_to_board(fen: &str) -> Board {
     for (index, section) in fen.split_whitespace().enumerate() {
         match index {
             0 => {
-                let mut current_row = 2;
+                let mut current_row = 0;
                 for (_char_index, characters) in section.split('/').enumerate() {
-                    let mut current_column = 2;
+                    let mut current_column = 0;
                     for (_char_index, character) in characters.chars().enumerate() {
-                        if current_column > 10 {
+                        if current_column > 7 {
                             break;
                         }
 
                         if character.is_alphabetic() {
-                            board.board_array[current_row][current_column] =
-                                convert_alphabetic_to_piece(character);
+                            // board.board_array[current_row][current_column] =
+                            //     convert_alphabetic_to_piece(character);
+                            let piece_colour = if character.is_uppercase() { 1 } else { 2 };
 
-                            if character.is_uppercase() {
-                                board.colour_array[current_row][current_column] = 1;
-                            } else {
-                                board.colour_array[current_row][current_column] = 2;
-                            }
-
+                            board.set_piece_and_colour(
+                                (current_row, current_column),
+                                convert_alphabetic_to_piece(character),
+                                piece_colour,
+                            );
                             current_column += 1;
                         }
 
@@ -48,7 +48,7 @@ pub fn convert_fen_to_board(fen: &str) -> Board {
                     }
 
                     current_row += 1;
-                    if current_row > 10 {
+                    if current_row > 7 {
                         break;
                     }
                 }
@@ -80,7 +80,7 @@ pub fn convert_fen_to_board(fen: &str) -> Board {
                 if en_passant_column == '-' {
                     continue;
                 }
-                board.en_passant = true;
+                // board.en_passant = true;
                 let en_passant_row = section.chars().nth(1).unwrap();
                 match en_passant_row {
                     '3' => {
@@ -133,9 +133,6 @@ pub fn convert_fen_to_board(fen: &str) -> Board {
         }
     }
 
-    // update running eval
-    board.set_running_evaluation(evaluate::evaluate(&board));
-
     return board;
 }
 
@@ -187,6 +184,10 @@ pub fn convert_array_location_to_notation(
     promotion: Option<String>,
 ) -> String {
     let mut notation_move: String = Default::default();
+    if from.0 > 7 || from.1 > 7 || to.0 > 7 || to.1 > 7 {
+        return notation_move;
+    }
+
     let start_location = constants::BOARD_COORDINATES[from.0][from.1];
     let end_location = constants::BOARD_COORDINATES[to.0][to.1];
 
@@ -216,7 +217,7 @@ pub fn convert_notation_to_location(chess_move: &str) -> Option<(usize, usize)> 
     return Some(location);
 }
 /// convert current board state into fen
-pub fn convert_board_to_fen(board: &Board) -> String {
+pub fn convert_board_to_fen(_board: &Board) -> String {
     let fen_string = String::new();
 
     // loop over each rank, adding to fen string

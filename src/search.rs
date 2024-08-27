@@ -1,9 +1,8 @@
 use crate::board::Board;
 use crate::constants::*;
-use crate::evaluate::*;
+use crate::evaluate;
 use crate::movegen::*;
 use crate::moves::*;
-use std::env::set_current_dir;
 use std::time::Instant;
 pub struct MoveNode {
     pub move_notation: String,
@@ -59,11 +58,9 @@ impl SearchEngine {
     ) -> i32 {
         // the move needs to record its own evaluation
         if depth == 0 {
-            let running_evaluation = board.get_running_evaluation();
-
-            return running_evaluation;
+            return evaluate::evaluate(&board);
         };
-        let side_to_move = board.side_to_move;
+
         // generate moves for current depth of board
         let mut moves_for_current_depth = generate_pseudo_legal_moves(board, board.side_to_move, 1);
         order_moves(&mut moves_for_current_depth);
@@ -105,7 +102,9 @@ impl SearchEngine {
         }
     }
 
-    pub fn search(&mut self, board: &mut Board, depth: i8) -> Vec<BestMoves> {
+    pub fn search(&mut self, board: &mut Board, depth: i8) -> (Move, Vec<BestMoves>) {
+        // adding in iterative deepening?
+
         let mut best_move = Move::default();
         let mut best_score = -1000;
         let mut best_moves = Vec::new();
@@ -120,33 +119,36 @@ impl SearchEngine {
             board.make_move(generated_move);
 
             // check not moving self into check
-            if is_in_check(board, current_side) {
+            if evaluate::is_in_check(board, current_side) {
                 board.un_make_move(generated_move);
                 continue;
             }
 
-            let mut score = self.minimax(board, depth, true, i32::MIN, i32::MAX);
-            println!(
-                "colour: {}, root move: {}, eval: {}",
-                current_side, generated_move.notation_move, score
-            );
+            let score = self.minimax(board, depth, true, i32::MIN, i32::MAX);
 
+            // store the score against each move?
             if score > best_score {
                 best_score = score;
                 best_move = generated_move.clone();
                 best_moves.push(BestMoves {
-                    best_move,
+                    best_move: generated_move.clone(),
                     best_score,
                 });
             }
 
             board.un_make_move(generated_move);
-            // print_board(board);
         }
+        // add secondary sort by 'sortscore'.
+        best_moves.sort_by(|a, b| {
+            let score_cmp = b.best_score.cmp(&a.best_score);
+            if score_cmp == std::cmp::Ordering::Equal {
+                b.best_move.sort_score.cmp(&a.best_move.sort_score)
+            } else {
+                score_cmp
+            }
+        });
 
-        best_moves.sort_by(|a, b| b.best_score.cmp(&a.best_score));
-
-        return best_moves;
+        return (best_move, best_moves);
     }
 
     pub fn perft(&mut self, board: &mut Board, depth: i8, first_call: bool) {
@@ -161,13 +163,15 @@ impl SearchEngine {
         for generated_move in moves_for_current_depth.iter() {
             board.make_move(generated_move);
 
-            if is_in_check(board, current_side) {
+            if evaluate::is_in_check(board, current_side) {
                 board.un_make_move(generated_move);
                 continue;
             }
 
             if !first_call {
                 self.nodes += 1;
+            } else if depth == 1 {
+                self.nodes = 1;
             } else {
                 self.nodes = 0;
             }
@@ -178,9 +182,6 @@ impl SearchEngine {
             board.un_make_move(generated_move);
 
             if first_call {
-                println!("root move: {}", generated_move.notation_move);
-                println!("total nodes: {}", self.nodes);
-
                 // update root node here with number
                 self.move_nodes.push(MoveNode {
                     move_notation: generated_move.notation_move.clone(),

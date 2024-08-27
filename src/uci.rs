@@ -125,9 +125,8 @@ impl CommunicationManager {
     }
     pub fn evaluate(&self) {
         println!(
-            "{}, {}",
-            evaluate(&self.board),
-            self.board.get_running_evaluation()
+            "{}",
+            evaluate(&self.board) // self.board.get_running_evaluation()
         );
     }
     pub fn bench(&mut self) {
@@ -173,7 +172,7 @@ impl CommunicationManager {
                 // get random move from best moves with matching top score.
                 println!(
                     "best move {}, score {}",
-                    outcome[0].best_move.notation_move, outcome[0].best_score
+                    outcome.1[0].best_move.notation_move, outcome.1[0].best_score
                 );
             }
         }
@@ -267,7 +266,7 @@ impl CommunicationManager {
         //         bestmoves.best_move.notation_move, bestmoves.best_score
         //     );
         // }
-        println!("bestmove {}", moves[0].best_move.notation_move);
+        println!("bestmove {}", moves.0.notation_move);
         // return moves[0];
         // do the search with the provided settings
     }
