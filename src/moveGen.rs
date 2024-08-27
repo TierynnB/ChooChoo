@@ -544,14 +544,12 @@ pub fn generate_rook_moves(
 
     return moves;
 }
-
-pub fn generate_queen_moves(
+pub fn get_queen_attacks(
     square: (usize, usize),
     side_to_generate_for: i8,
     board: &Board,
-) -> Vec<Move> {
-    let mut moves: Vec<Move> = vec![];
-    // let _enemy_color = if side_to_generate_for == 1 { 2 } else { 1 };
+) -> Vec<(usize, usize)> {
+    let mut attacking_squares: Vec<(usize, usize)> = vec![];
     // from a rooks square, look along the 4 directions to see if it can move further
     let (row, column) = square;
     let move_directions: [(isize, isize); 8] = [
@@ -566,6 +564,7 @@ pub fn generate_queen_moves(
     ];
     for direction in move_directions {
         for multiplier in 1..8 {
+            // if out of bounds, stop
             if (row as isize + direction.0 * multiplier) < 0
                 || (row as isize + direction.0 * multiplier) > 7
                 || (column as isize + direction.1 * multiplier) < 0
@@ -573,7 +572,6 @@ pub fn generate_queen_moves(
             {
                 continue;
             }
-
             let to_square_colour = board.get_piece_colour((
                 (row as isize + direction.0 * multiplier) as usize,
                 (column as isize + direction.1 * multiplier) as usize,
@@ -583,39 +581,52 @@ pub fn generate_queen_moves(
                 break;
             }
 
-            let to_piece_type = board.get_piece((
+            attacking_squares.push((
                 (row as isize + direction.0 * multiplier) as usize,
                 (column as isize + direction.1 * multiplier) as usize,
-            ));
-            moves.push(Move {
-                from: square,
-                from_piece: QUEEN,
-                to: (
-                    (row as isize + direction.0 * multiplier) as usize,
-                    (column as isize + direction.1 * multiplier) as usize,
-                ),
-                to_piece: to_piece_type,
-                from_colour: side_to_generate_for,
-                to_colour: to_square_colour,
-                notation_move: convert_array_location_to_notation(
-                    square,
-                    (
-                        (row as isize + direction.0 * multiplier) as usize,
-                        (column as isize + direction.1 * multiplier) as usize,
-                    ),
-                    None,
-                ),
-                en_passant: false,
+            ))
+        }
+    }
 
-                promotion_to: None,
-                castle_from_to_square: None,
-                sort_score: 0,
-            });
+    return attacking_squares;
+}
+pub fn generate_queen_moves(
+    square: (usize, usize),
+    side_to_generate_for: i8,
+    board: &Board,
+) -> Vec<Move> {
+    let mut moves: Vec<Move> = vec![];
+    // let _enemy_color = if side_to_generate_for == 1 { 2 } else { 1 };
+    // from a rooks square, look along the 4 directions to see if it can move further
 
-            // if captured a piece, stop multiplying and look in new direction
-            if to_square_colour != side_to_generate_for && to_square_colour != EMPTY {
-                break;
-            }
+    let attack_squares = get_bishop_attacks(square, side_to_generate_for, board);
+
+    for attack_square in attack_squares {
+        let to_piece_type = board.get_piece((attack_square.0, attack_square.1));
+        let to_square_colour = board.get_piece_colour((attack_square.0, attack_square.1));
+
+        moves.push(Move {
+            from: square,
+            from_piece: QUEEN,
+            to: (attack_square.0, attack_square.1),
+            to_piece: to_piece_type,
+            from_colour: side_to_generate_for,
+            to_colour: to_square_colour,
+            notation_move: convert_array_location_to_notation(
+                square,
+                (attack_square.0, attack_square.1),
+                None,
+            ),
+            en_passant: false,
+
+            promotion_to: None,
+            castle_from_to_square: None,
+            sort_score: 0,
+        });
+
+        // if captured a piece, stop multiplying and look in new direction
+        if to_square_colour != side_to_generate_for && to_square_colour != EMPTY {
+            break;
         }
     }
 
@@ -631,49 +642,9 @@ pub fn generate_king_moves(
     board: &Board,
     king_check_depth: i8,
 ) -> Vec<Move> {
-    // get sides king location
-    // let king_location = board.get_king_location(side_to_generate_for);
-    let mut opponent_moves: Vec<Move> = vec![];
-    // generate opponent moves
-    if king_check_depth > 0 {
-        opponent_moves = generate_pseudo_legal_moves(
-            board,
-            if side_to_generate_for == WHITE {
-                BLACK
-            } else {
-                WHITE
-            },
-            king_check_depth - 1,
-        );
-    }
-
+ 
     // when castling, take into account that the king is moving through the squares, not teleporting
     // only for those squares castling still possible
-    let mut castling_squares_being_attacked = CastlingSquaresAttacked::default();
-
-    if !board.has_king_moved
-        && (board.a1_rook_not_moved
-            || board.h1_rook_not_moved
-            || board.a8_rook_not_moved
-            || board.h8_rook_not_moved)
-    {
-        for enemy_move in &opponent_moves {
-            match enemy_move.to {
-                (9, 5) => castling_squares_being_attacked.d1_attacked = true, //d1
-                (9, 4) => castling_squares_being_attacked.c1_attacked = true, //c1
-                (9, 6) => castling_squares_being_attacked.e1_attacked = true, //e1
-                (9, 7) => castling_squares_being_attacked.f1_attacked = true, //f1
-                (9, 8) => castling_squares_being_attacked.g1_attacked = true, //g1
-                (2, 5) => castling_squares_being_attacked.d8_attacked = true, //d8
-                (2, 4) => castling_squares_being_attacked.c8_attacked = true, //c8
-                (2, 6) => castling_squares_being_attacked.e8_attacked = true, //e8
-                (2, 7) => castling_squares_being_attacked.f8_attacked = true, //f8
-                (2, 8) => castling_squares_being_attacked.g8_attacked = true, //g8
-                _ => {}
-            }
-        }
-    }
-
     let mut moves: Vec<Move> = vec![];
     // let _enemy_color = if side_to_generate_for == 1 { 2 } else { 1 };
     let (row, column) = square;
@@ -755,9 +726,9 @@ pub fn generate_king_moves(
                 && board.is_square_empty("b1")
                 && board.is_square_empty("c1")
                 && board.is_square_empty("d1")
-                && !castling_squares_being_attacked.c1_attacked
-                && !castling_squares_being_attacked.d1_attacked
-                && !castling_squares_being_attacked.e1_attacked
+                // && !castling_squares_being_attacked.c1_attacked
+                // && !castling_squares_being_attacked.d1_attacked
+                // && !castling_squares_being_attacked.e1_attacked
             {
                 //check if moving into d1 is check.
 
@@ -783,9 +754,9 @@ pub fn generate_king_moves(
             if board.h1_rook_not_moved
                 && board.is_square_empty("f1")
                 && board.is_square_empty("g1")
-                && !castling_squares_being_attacked.f1_attacked
-                && !castling_squares_being_attacked.g1_attacked
-                && !castling_squares_being_attacked.e1_attacked
+                // && !castling_squares_being_attacked.f1_attacked
+                // && !castling_squares_being_attacked.g1_attacked
+                // && !castling_squares_being_attacked.e1_attacked
             {
                 moves.push(Move {
                     from: square,
@@ -813,9 +784,9 @@ pub fn generate_king_moves(
                 && board.is_square_empty("b8")
                 && board.is_square_empty("c8")
                 && board.is_square_empty("d8")
-                && !castling_squares_being_attacked.c8_attacked
-                && !castling_squares_being_attacked.d8_attacked
-                && !castling_squares_being_attacked.e8_attacked
+                // && !castling_squares_being_attacked.c8_attacked
+                // && !castling_squares_being_attacked.d8_attacked
+                // && !castling_squares_being_attacked.e8_attacked
             {
                 moves.push(Move {
                     from: square,
@@ -839,9 +810,9 @@ pub fn generate_king_moves(
             if board.h8_rook_not_moved
                 && board.is_square_empty("f8")
                 && board.is_square_empty("g8")
-                && !castling_squares_being_attacked.f8_attacked
-                && !castling_squares_being_attacked.g8_attacked
-                && !castling_squares_being_attacked.e8_attacked
+                // && !castling_squares_being_attacked.f8_attacked
+                // && !castling_squares_being_attacked.g8_attacked
+                // && !castling_squares_being_attacked.e8_attacked
             {
                 moves.push(Move {
                     from: square,
