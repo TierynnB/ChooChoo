@@ -596,10 +596,8 @@ pub fn generate_queen_moves(
     board: &Board,
 ) -> Vec<Move> {
     let mut moves: Vec<Move> = vec![];
-    // let _enemy_color = if side_to_generate_for == 1 { 2 } else { 1 };
-    // from a rooks square, look along the 4 directions to see if it can move further
 
-    let attack_squares = get_bishop_attacks(square, side_to_generate_for, board);
+    let attack_squares = get_queen_attacks(square, side_to_generate_for, board);
 
     for attack_square in attack_squares {
         let to_piece_type = board.get_piece((attack_square.0, attack_square.1));
@@ -632,23 +630,16 @@ pub fn generate_queen_moves(
 
     return moves;
 }
-
-/// generate pseudo legal king moves,
-/// this includes castling
-/// this will check king is not being moved into check
-pub fn generate_king_moves(
+pub fn get_king_attacks(
     square: (usize, usize),
     side_to_generate_for: i8,
     board: &Board,
-    king_check_depth: i8,
-) -> Vec<Move> {
- 
-    // when castling, take into account that the king is moving through the squares, not teleporting
-    // only for those squares castling still possible
-    let mut moves: Vec<Move> = vec![];
+) -> Vec<(usize, usize)> {
+    let mut attacking_squares: Vec<(usize, usize)> = vec![];
+    // from a rooks square, look along the 4 directions to see if it can move further
     // let _enemy_color = if side_to_generate_for == 1 { 2 } else { 1 };
     let (row, column) = square;
-    let king_move_directions: [(isize, isize); 8] = [
+    let move_directions: [(isize, isize); 8] = [
         (-1, 0),
         (1, 0),
         (0, -1),
@@ -658,8 +649,7 @@ pub fn generate_king_moves(
         (1, -1),
         (1, 1),
     ];
-
-    for direction in king_move_directions {
+    for direction in move_directions {
         if column == 0 && direction.1 == -1 {
             continue;
         }
@@ -683,27 +673,43 @@ pub fn generate_king_moves(
             continue;
         }
 
-        let to_piece_type = board.get_piece((
+        attacking_squares.push((
             (row as isize + direction.0) as usize,
             (column as isize + direction.1) as usize,
-        ));
+        ))
+    }
+
+    return attacking_squares;
+}
+/// generate pseudo legal king moves,
+/// this includes castling
+/// this will check king is not being moved into check
+pub fn generate_king_moves(
+    square: (usize, usize),
+    side_to_generate_for: i8,
+    board: &Board,
+    king_check_depth: i8,
+) -> Vec<Move> {
+    // when castling, take into account that the king is moving through the squares, not teleporting
+    // only for those squares castling still possible
+    let mut moves: Vec<Move> = vec![];
+    let (row, column) = square;
+    let attack_squares = get_king_attacks(square, side_to_generate_for, board);
+
+    for attack_square in attack_squares {
+        let to_piece_type = board.get_piece((attack_square.0, attack_square.1));
+        let to_square_colour = board.get_piece_colour((attack_square.0, attack_square.1));
 
         moves.push(Move {
             from: square,
             from_piece: KING,
-            to: (
-                (row as isize + direction.0) as usize,
-                (column as isize + direction.1) as usize,
-            ),
+            to: (attack_square.0, attack_square.1),
             to_piece: to_piece_type,
             from_colour: side_to_generate_for,
             to_colour: to_square_colour,
             notation_move: convert_array_location_to_notation(
                 square,
-                (
-                    (row as isize + direction.0) as usize,
-                    (column as isize + direction.1) as usize,
-                ),
+                (attack_square.0, attack_square.1),
                 None,
             ),
             en_passant: false,
@@ -726,9 +732,9 @@ pub fn generate_king_moves(
                 && board.is_square_empty("b1")
                 && board.is_square_empty("c1")
                 && board.is_square_empty("d1")
-                // && !castling_squares_being_attacked.c1_attacked
-                // && !castling_squares_being_attacked.d1_attacked
-                // && !castling_squares_being_attacked.e1_attacked
+            // && !castling_squares_being_attacked.c1_attacked
+            // && !castling_squares_being_attacked.d1_attacked
+            // && !castling_squares_being_attacked.e1_attacked
             {
                 //check if moving into d1 is check.
 
@@ -751,12 +757,10 @@ pub fn generate_king_moves(
                     sort_score: 0,
                 });
             }
-            if board.h1_rook_not_moved
-                && board.is_square_empty("f1")
-                && board.is_square_empty("g1")
-                // && !castling_squares_being_attacked.f1_attacked
-                // && !castling_squares_being_attacked.g1_attacked
-                // && !castling_squares_being_attacked.e1_attacked
+            if board.h1_rook_not_moved && board.is_square_empty("f1") && board.is_square_empty("g1")
+            // && !castling_squares_being_attacked.f1_attacked
+            // && !castling_squares_being_attacked.g1_attacked
+            // && !castling_squares_being_attacked.e1_attacked
             {
                 moves.push(Move {
                     from: square,
@@ -784,9 +788,9 @@ pub fn generate_king_moves(
                 && board.is_square_empty("b8")
                 && board.is_square_empty("c8")
                 && board.is_square_empty("d8")
-                // && !castling_squares_being_attacked.c8_attacked
-                // && !castling_squares_being_attacked.d8_attacked
-                // && !castling_squares_being_attacked.e8_attacked
+            // && !castling_squares_being_attacked.c8_attacked
+            // && !castling_squares_being_attacked.d8_attacked
+            // && !castling_squares_being_attacked.e8_attacked
             {
                 moves.push(Move {
                     from: square,
@@ -807,12 +811,10 @@ pub fn generate_king_moves(
                     sort_score: 0,
                 });
             }
-            if board.h8_rook_not_moved
-                && board.is_square_empty("f8")
-                && board.is_square_empty("g8")
-                // && !castling_squares_being_attacked.f8_attacked
-                // && !castling_squares_being_attacked.g8_attacked
-                // && !castling_squares_being_attacked.e8_attacked
+            if board.h8_rook_not_moved && board.is_square_empty("f8") && board.is_square_empty("g8")
+            // && !castling_squares_being_attacked.f8_attacked
+            // && !castling_squares_being_attacked.g8_attacked
+            // && !castling_squares_being_attacked.e8_attacked
             {
                 moves.push(Move {
                     from: square,
