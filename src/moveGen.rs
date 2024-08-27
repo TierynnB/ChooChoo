@@ -434,75 +434,45 @@ pub fn generate_bishop_moves(
 ) -> Vec<Move> {
     let mut moves: Vec<Move> = vec![];
 
-    // from a bishops square, look along the 4 diagonals to see if it can move further
-    let (row, column) = square;
-    let bishop_move_directions: [(isize, isize); 4] = [(-1, -1), (-1, 1), (1, -1), (1, 1)];
-    for direction in bishop_move_directions {
-        for multiplier in 1..8 {
-            if (row as isize + direction.0 * multiplier) < 0
-                || (row as isize + direction.0 * multiplier) > 7
-                || (column as isize + direction.1 * multiplier) < 0
-                || (column as isize + direction.1 * multiplier) > 7
-            {
-                continue;
-            }
+    let attack_squares = get_bishop_attacks(square, side_to_generate_for, board);
 
-            let to_square_colour = board.get_piece_colour((
-                (row as isize + direction.0 * multiplier) as usize,
-                (column as isize + direction.1 * multiplier) as usize,
-            ));
+    for attack_square in attack_squares {
+        let to_piece_type = board.get_piece((attack_square.0, attack_square.1));
+        let to_square_colour = board.get_piece_colour((attack_square.0, attack_square.1));
 
-            if to_square_colour == side_to_generate_for {
-                break;
-            }
+        moves.push(Move {
+            from: square,
+            from_piece: BISHOP,
+            to: (attack_square.0, attack_square.1),
+            to_piece: to_piece_type,
+            from_colour: side_to_generate_for,
+            to_colour: to_square_colour,
+            notation_move: convert_array_location_to_notation(
+                square,
+                (attack_square.0, attack_square.1),
+                None,
+            ),
+            en_passant: false,
 
-            let to_piece_type = board.get_piece((
-                (row as isize + direction.0 * multiplier) as usize,
-                (column as isize + direction.1 * multiplier) as usize,
-            ));
+            promotion_to: None,
+            castle_from_to_square: None,
+            sort_score: 0,
+        });
 
-            moves.push(Move {
-                from: square,
-                from_piece: BISHOP,
-                to: (
-                    (row as isize + direction.0 * multiplier) as usize,
-                    (column as isize + direction.1 * multiplier) as usize,
-                ),
-                to_piece: to_piece_type,
-                from_colour: side_to_generate_for,
-                to_colour: to_square_colour,
-                notation_move: convert_array_location_to_notation(
-                    square,
-                    (
-                        (row as isize + direction.0 * multiplier) as usize,
-                        (column as isize + direction.1 * multiplier) as usize,
-                    ),
-                    None,
-                ),
-                en_passant: false,
-
-                promotion_to: None,
-                castle_from_to_square: None,
-                sort_score: 0,
-            });
-
-            // if captured a piece, stop multiplying and look in new direction
-            if to_square_colour != side_to_generate_for && to_square_colour != EMPTY {
-                break;
-            }
+        // if captured a piece, stop multiplying and look in new direction
+        if to_square_colour != side_to_generate_for && to_square_colour != EMPTY {
+            break;
         }
     }
 
     return moves;
 }
-
-pub fn generate_rook_moves(
+pub fn get_rook_attacks(
     square: (usize, usize),
     side_to_generate_for: i8,
     board: &Board,
-) -> Vec<Move> {
-    let mut moves: Vec<Move> = vec![];
-    // let _enemy_color = if side_to_generate_for == 1 { 2 } else { 1 };
+) -> Vec<(usize, usize)> {
+    let mut attacking_squares: Vec<(usize, usize)> = vec![];
     // from a rooks square, look along the 4 directions to see if it can move further
     let (row, column) = square;
     let rook_move_directions: [(isize, isize); 4] = [(-1, 0), (1, 0), (0, -1), (0, 1)];
@@ -525,40 +495,50 @@ pub fn generate_rook_moves(
                 break;
             }
 
-            let to_piece_type = board.get_piece((
+            attacking_squares.push((
                 (row as isize + direction.0 * multiplier) as usize,
                 (column as isize + direction.1 * multiplier) as usize,
-            ));
+            ))
+        }
+    }
 
-            moves.push(Move {
-                from: square,
-                from_piece: ROOK,
-                to: (
-                    (row as isize + direction.0 * multiplier) as usize,
-                    (column as isize + direction.1 * multiplier) as usize,
-                ),
-                to_piece: to_piece_type,
-                from_colour: side_to_generate_for,
-                to_colour: to_square_colour,
-                notation_move: convert_array_location_to_notation(
-                    square,
-                    (
-                        (row as isize + direction.0 * multiplier) as usize,
-                        (column as isize + direction.1 * multiplier) as usize,
-                    ),
-                    None,
-                ),
-                en_passant: false,
+    return attacking_squares;
+}
+pub fn generate_rook_moves(
+    square: (usize, usize),
+    side_to_generate_for: i8,
+    board: &Board,
+) -> Vec<Move> {
+    let mut moves: Vec<Move> = vec![];
 
-                promotion_to: None,
-                castle_from_to_square: None,
-                sort_score: 0,
-            });
+    let attack_squares = get_bishop_attacks(square, side_to_generate_for, board);
 
-            // if captured a piece, stop multiplying and look in new direction
-            if to_square_colour != side_to_generate_for && to_square_colour != EMPTY {
-                break;
-            }
+    for attack_square in attack_squares {
+        let to_piece_type = board.get_piece((attack_square.0, attack_square.1));
+        let to_square_colour = board.get_piece_colour((attack_square.0, attack_square.1));
+
+        moves.push(Move {
+            from: square,
+            from_piece: ROOK,
+            to: (attack_square.0, attack_square.1),
+            to_piece: to_piece_type,
+            from_colour: side_to_generate_for,
+            to_colour: to_square_colour,
+            notation_move: convert_array_location_to_notation(
+                square,
+                (attack_square.0, attack_square.1),
+                None,
+            ),
+            en_passant: false,
+
+            promotion_to: None,
+            castle_from_to_square: None,
+            sort_score: 0,
+        });
+
+        // if captured a piece, stop multiplying and look in new direction
+        if to_square_colour != side_to_generate_for && to_square_colour != EMPTY {
+            break;
         }
     }
 
