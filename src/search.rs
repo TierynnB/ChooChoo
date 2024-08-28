@@ -62,7 +62,7 @@ impl SearchEngine {
         };
 
         // generate moves for current depth of board
-        let mut moves_for_current_depth = generate_pseudo_legal_moves(board, board.side_to_move, 1);
+        let mut moves_for_current_depth = generate_pseudo_legal_moves(board, board.side_to_move);
         order_moves(&mut moves_for_current_depth);
         if maximizing_player {
             let mut max_eval = -1000;
@@ -113,13 +113,17 @@ impl SearchEngine {
         self.start = Instant::now();
         let current_side = board.side_to_move;
         // generate moves for current depth of board
-        let mut moves_for_current_depth = generate_pseudo_legal_moves(board, board.side_to_move, 1);
+        let mut moves_for_current_depth = generate_pseudo_legal_moves(board, board.side_to_move);
         order_moves(&mut moves_for_current_depth);
         for generated_move in moves_for_current_depth.iter() {
             board.make_move(generated_move);
 
             // check not moving self into check
-            if evaluate::is_in_check(board, current_side) {
+            if evaluate::is_in_check(
+                board,
+                current_side,
+                generated_move.castling_intermediary_square,
+            ) {
                 board.un_make_move(generated_move);
                 continue;
             }
@@ -158,12 +162,16 @@ impl SearchEngine {
 
         let current_side = board.side_to_move;
 
-        let moves_for_current_depth = generate_pseudo_legal_moves(board, board.side_to_move, 1);
+        let moves_for_current_depth = generate_pseudo_legal_moves(board, board.side_to_move);
 
         for generated_move in moves_for_current_depth.iter() {
             board.make_move(generated_move);
 
-            if evaluate::is_in_check(board, current_side) {
+            if evaluate::is_in_check(
+                board,
+                current_side,
+                generated_move.castling_intermediary_square,
+            ) {
                 board.un_make_move(generated_move);
                 continue;
             }

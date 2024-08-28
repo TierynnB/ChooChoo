@@ -1,3 +1,5 @@
+use rand::distributions::Open01;
+
 use crate::board::Board;
 use crate::{constants::*, movegen::*};
 
@@ -35,32 +37,60 @@ pub fn evaluate(board: &Board) -> i32 {
     return score;
     // count and addup pieces.
 }
-pub fn is_in_check(board: &Board, side_to_check: i8) -> bool {
+pub fn is_in_check(
+    board: &Board,
+    side_to_check: i8,
+    aditional_square_to_check: Option<(usize, usize)>,
+) -> bool {
     let opponent_colour = if side_to_check == WHITE { BLACK } else { WHITE };
 
-    // get sides king location
     let king_location = board.get_king_location(side_to_check);
 
-    if generate_pseudo_legal_moves(board, opponent_colour, 1)
-        .iter()
-        .any(|x| x.to == king_location)
-    {
-        return true;
+    for (row_index, row) in board.colour_array.iter().enumerate() {
+        for (column_index, square_colour) in row.iter().enumerate() {
+            if square_colour != &opponent_colour {
+                continue;
+            }
+            let piece_type = board.get_piece((row_index, column_index));
+            let mut outcome = is_attacked_by_piece_from_square(
+                board,
+                (row_index, column_index),
+                piece_type,
+                king_location,
+                opponent_colour,
+            );
+
+            if outcome {
+                return outcome;
+            }
+            if aditional_square_to_check.is_some() {
+                outcome = is_attacked_by_piece_from_square(
+                    board,
+                    (row_index, column_index),
+                    piece_type,
+                    aditional_square_to_check.unwrap(),
+                    opponent_colour,
+                );
+            }
+        }
     }
-
     return false;
-}
 
+    // in case of castling, check if they attack the intermediary squares.
+}
+// its given a square, and an enemy piece.
+// and if the square is attacked by the enemy piece it returns true.
 pub fn is_attacked_by_piece_from_square(
     board: &Board,
     square_from: (usize, usize),
-    pieceType: i8,
+    piece_type: i8,
     square_to: (usize, usize),
+    side_to_generate_for: i8,
 ) -> bool {
     let difference_in_row = (square_to.0 as i32 - square_from.0 as i32).abs();
     let difference_in_column = (square_to.1 as i32 - square_from.1 as i32).abs();
 
-    match pieceType {
+    match piece_type {
         PAWN => {
             if difference_in_column > 1 || difference_in_row > 1 {
                 return false;
@@ -68,21 +98,41 @@ pub fn is_attacked_by_piece_from_square(
 
             // check if pawn is diagonal from the square_to.
 
-            // include en passant.
+            // include en passant? or not important for checking is_in_check
         }
         KNIGHT => {
             if difference_in_row > 3 || difference_in_column > 3 {
                 return false;
             };
+            for attack in get_knight_attacks(square_from, side_to_generate_for, board) {
+                if attack == square_to {
+                    return true;
+                }
+            }
         }
         BISHOP => {
+            if difference_in_column == 0 || difference_in_row == 0 {
+                return false;
+            }
+
             if difference_in_row % difference_in_column != 0 {
                 return false;
+            }
+
+            for attack in get_bishop_attacks(square_from, side_to_generate_for, board) {
+                if attack == square_to {
+                    return true;
+                }
             }
         }
         ROOK => {
             if difference_in_row != 0 && difference_in_column != 0 {
                 return false;
+            }
+            for attack in get_rook_attacks(square_from, side_to_generate_for, board) {
+                if attack == square_to {
+                    return true;
+                }
             }
         }
         QUEEN => {
@@ -91,10 +141,20 @@ pub fn is_attacked_by_piece_from_square(
             {
                 return false;
             }
+            for attack in get_queen_attacks(square_from, side_to_generate_for, board) {
+                if attack == square_to {
+                    return true;
+                }
+            }
         }
         KING => {
             if difference_in_row > 1 || difference_in_column > 1 {
                 return false;
+            }
+            for attack in get_king_attacks(square_from, side_to_generate_for, board) {
+                if attack == square_to {
+                    return true;
+                }
             }
         }
         _ => return false,

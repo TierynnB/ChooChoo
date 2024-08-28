@@ -10,12 +10,13 @@ pub struct Move {
     pub promotion_to: Option<i8>,
     pub en_passant: bool,
     pub castle_from_to_square: Option<((usize, usize), (usize, usize))>,
+    pub castling_intermediary_square: Option<(usize, usize)>,
     pub sort_score: i32,
 }
 impl Default for Move {
     fn default() -> Self {
         // return a default instance of Move
-        return Move {
+        return Move { 
             from: (0, 0),
             from_piece: 0,
             from_colour: 0,
@@ -27,6 +28,7 @@ impl Default for Move {
             promotion_to: None,
             en_passant: false,
             castle_from_to_square: None,
+            castling_intermediary_square: None,
             sort_score: 0,
         };
     }

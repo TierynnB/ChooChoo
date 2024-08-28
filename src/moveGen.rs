@@ -30,7 +30,43 @@ impl Default for CastlingSquaresAttacked {
         };
     }
 }
+pub fn get_pawn_attacks(
+    square: (usize, usize),
+    side_to_generate_for: i8,
+    board: &Board,
+) -> Vec<(usize, usize)> {
+    let mut attacking_squares: Vec<(usize, usize)> = vec![];
 
+    let (row, column) = square;
+    let knight_move_steps: [(isize, isize); 8] = [(-1, 1), ()];
+    // knight can move in any direction, two squares in one direciton, then 1 square in the other.
+
+    // if populated by same colour piece, no move
+    for (_index, move_steps) in knight_move_steps.iter().enumerate() {
+        // if out of bounds, stop
+        if (row as isize + move_steps.0) < 0
+            || (row as isize + move_steps.0) > 7
+            || (column as isize + move_steps.1) < 0
+            || (column as isize + move_steps.1) > 7
+        {
+            continue;
+        }
+        let to_square_colour = board.get_piece_colour((
+            (row as isize + move_steps.0) as usize,
+            (column as isize + move_steps.1) as usize,
+        ));
+        if to_square_colour == side_to_generate_for {
+            continue;
+        }
+
+        attacking_squares.push((
+            (row as isize + move_steps.0) as usize,
+            (column as isize + move_steps.1) as usize,
+        ))
+    }
+
+    return attacking_squares;
+}
 pub fn generate_pawn_moves(
     square: (usize, usize),
     side_to_generate_for: i8,
@@ -94,6 +130,7 @@ pub fn generate_pawn_moves(
 
                 promotion_to: Some(piece),
                 castle_from_to_square: None,
+                castling_intermediary_square: None,
                 sort_score: 0,
             });
         }
@@ -114,6 +151,7 @@ pub fn generate_pawn_moves(
 
             promotion_to: None,
             castle_from_to_square: None,
+            castling_intermediary_square: None,
             sort_score: 0,
         });
     }
@@ -156,6 +194,7 @@ pub fn generate_pawn_moves(
 
                         promotion_to: Some(piece),
                         castle_from_to_square: None,
+                        castling_intermediary_square: None,
                         sort_score: 0,
                     });
                 }
@@ -176,6 +215,7 @@ pub fn generate_pawn_moves(
 
                     promotion_to: None,
                     castle_from_to_square: None,
+                    castling_intermediary_square: None,
                     sort_score: 0,
                 });
             }
@@ -222,6 +262,7 @@ pub fn generate_pawn_moves(
 
                         promotion_to: Some(piece),
                         castle_from_to_square: None,
+                        castling_intermediary_square: None,
                         sort_score: 0,
                     });
                 }
@@ -242,6 +283,7 @@ pub fn generate_pawn_moves(
 
                     promotion_to: None,
                     castle_from_to_square: None,
+                    castling_intermediary_square: None,
                     sort_score: 0,
                 });
             }
@@ -274,6 +316,7 @@ pub fn generate_pawn_moves(
                 promotion_to: None,
                 en_passant: true,
                 castle_from_to_square: None,
+                castling_intermediary_square: None,
                 sort_score: 0,
             });
         }
@@ -301,6 +344,7 @@ pub fn generate_pawn_moves(
 
                 promotion_to: None,
                 en_passant: false,
+                castling_intermediary_square: None,
                 castle_from_to_square: None,
                 sort_score: 0,
             });
@@ -384,6 +428,7 @@ pub fn generate_knight_moves(
 
             promotion_to: None,
             castle_from_to_square: None,
+            castling_intermediary_square: None,
             sort_score: 0,
         });
     }
@@ -456,6 +501,7 @@ pub fn generate_bishop_moves(
 
             promotion_to: None,
             castle_from_to_square: None,
+            castling_intermediary_square: None,
             sort_score: 0,
         });
 
@@ -533,6 +579,7 @@ pub fn generate_rook_moves(
 
             promotion_to: None,
             castle_from_to_square: None,
+            castling_intermediary_square: None,
             sort_score: 0,
         });
 
@@ -619,6 +666,7 @@ pub fn generate_queen_moves(
 
             promotion_to: None,
             castle_from_to_square: None,
+            castling_intermediary_square: None,
             sort_score: 0,
         });
 
@@ -688,7 +736,6 @@ pub fn generate_king_moves(
     square: (usize, usize),
     side_to_generate_for: i8,
     board: &Board,
-    king_check_depth: i8,
 ) -> Vec<Move> {
     // when castling, take into account that the king is moving through the squares, not teleporting
     // only for those squares castling still possible
@@ -716,6 +763,7 @@ pub fn generate_king_moves(
 
             promotion_to: None,
             castle_from_to_square: None,
+            castling_intermediary_square: None,
             sort_score: 0,
         });
 
@@ -753,7 +801,8 @@ pub fn generate_king_moves(
                     en_passant: false,
 
                     promotion_to: None,
-                    castle_from_to_square: None,
+                    castle_from_to_square: Some((square, (row, (column as isize - 2) as usize))),
+                    castling_intermediary_square: Some((7, 3)), //d1
                     sort_score: 0,
                 });
             }
@@ -777,7 +826,8 @@ pub fn generate_king_moves(
                     en_passant: false,
 
                     promotion_to: None,
-                    castle_from_to_square: None,
+                    castle_from_to_square: Some((square, (row, (column as isize + 2) as usize))),
+                    castling_intermediary_square: Some((7, 5)), //f1
                     sort_score: 0,
                 });
             }
@@ -807,7 +857,8 @@ pub fn generate_king_moves(
                     en_passant: false,
 
                     promotion_to: None,
-                    castle_from_to_square: None,
+                    castle_from_to_square: Some((square, (row, (column as isize - 2) as usize))),
+                    castling_intermediary_square: Some((0, 3)), //d8
                     sort_score: 0,
                 });
             }
@@ -831,7 +882,8 @@ pub fn generate_king_moves(
                     en_passant: false,
 
                     promotion_to: None,
-                    castle_from_to_square: None,
+                    castle_from_to_square: Some((square, (row, (column as isize + 2) as usize))),
+                    castling_intermediary_square: Some((0, 5)), //f8
                     sort_score: 0,
                 });
             }
@@ -841,11 +893,7 @@ pub fn generate_king_moves(
     return moves;
 }
 
-pub fn generate_pseudo_legal_moves(
-    board: &Board,
-    side_to_generate_for: i8,
-    king_check_depth: i8,
-) -> Vec<Move> {
+pub fn generate_pseudo_legal_moves(board: &Board, side_to_generate_for: i8) -> Vec<Move> {
     let mut moves: Vec<Move> = vec![];
     // println!("square: {}", 1);
     // println!("side_to_generate_for: {}", side_to_generate_for);
@@ -864,7 +912,7 @@ pub fn generate_pseudo_legal_moves(
                 3 => generate_bishop_moves(location, side_to_generate_for, board),
                 4 => generate_rook_moves(location, side_to_generate_for, board),
                 5 => generate_queen_moves(location, side_to_generate_for, board),
-                6 => generate_king_moves(location, side_to_generate_for, board, king_check_depth),
+                6 => generate_king_moves(location, side_to_generate_for, board),
                 _ => vec![],
             };
 

@@ -257,13 +257,13 @@ impl Board {
                 || self.h8_rook_not_moved)
         {
             // check if king moved from e1 or h1 or a8 or h8
-            if move_to_do.from == (9, 6) && move_to_do.to == (9, 4) {
+            if move_to_do.from == (7, 4) && move_to_do.to == (7, 2) {
                 self.a1_rook_not_moved = false;
-            } else if move_to_do.from == (9, 6) && move_to_do.to == (9, 8) {
+            } else if move_to_do.from == (7, 4) && move_to_do.to == (7, 6) {
                 self.h1_rook_not_moved = false;
-            } else if move_to_do.from == (2, 6) && move_to_do.to == (2, 4) {
+            } else if move_to_do.from == (0, 4) && move_to_do.to == (0, 2) {
                 self.a8_rook_not_moved = false;
-            } else if move_to_do.from == (2, 6) && move_to_do.to == (2, 8) {
+            } else if move_to_do.from == (0, 4) && move_to_do.to == (0, 7) {
                 self.h8_rook_not_moved = false;
             }
         }
@@ -276,13 +276,13 @@ impl Board {
                 || self.h8_rook_not_moved)
         {
             // check if king moved from e1 or h1 or a8 or h8
-            if move_to_do.from == (9, 2) {
+            if move_to_do.from == (7, 0) {
                 self.a1_rook_not_moved = false;
-            } else if move_to_do.from == (9, 9) {
+            } else if move_to_do.from == (7, 7) {
                 self.h1_rook_not_moved = false;
-            } else if move_to_do.from == (2, 2) {
+            } else if move_to_do.from == (0, 0) {
                 self.a8_rook_not_moved = false;
-            } else if move_to_do.from == (2, 9) {
+            } else if move_to_do.from == (0, 7) {
                 self.h8_rook_not_moved = false;
             }
         }
@@ -296,13 +296,13 @@ impl Board {
                 || self.h8_rook_not_moved)
         {
             // check if rook moved from a1 or h1 or a8 or h8
-            if move_to_do.to == (9, 2) {
+            if move_to_do.to == (7, 0) {
                 self.a1_rook_not_moved = false;
-            } else if move_to_do.to == (9, 9) {
+            } else if move_to_do.to == (7, 7) {
                 self.h1_rook_not_moved = false;
-            } else if move_to_do.to == (2, 2) {
+            } else if move_to_do.to == (0, 0) {
                 self.a8_rook_not_moved = false;
-            } else if move_to_do.to == (2, 9) {
+            } else if move_to_do.to == (0, 7) {
                 self.h8_rook_not_moved = false;
             }
         }
@@ -413,16 +413,16 @@ impl Board {
             let from_to_squares = match chess_move.as_str() {
                 "O-O" => {
                     if self.side_to_move == WHITE {
-                        ((9, 6), (9, 8), (9, 9), (9, 7))
+                        ((7, 4), (7, 6), (7, 7), (7, 5))
                     } else {
-                        ((2, 6), (2, 8), (2, 9), (2, 7))
+                        ((0, 4), (0, 6), (0, 7), (0, 5))
                     }
                 }
                 "O-O-O" => {
                     if self.side_to_move == WHITE {
-                        ((9, 6), (9, 4), (9, 2), (9, 5))
+                        ((7, 4), (7, 2), (7, 0), (7, 3))
                     } else {
-                        ((2, 6), (2, 4), (2, 2), (2, 5))
+                        ((0, 4), (0, 2), (0, 9), (0, 3))
                     }
                 }
                 _ => return Err("Invalid castling move".to_string()),
@@ -440,6 +440,7 @@ impl Board {
                 promotion_to: None,
                 en_passant: false,
                 castle_from_to_square: Some((from_to_squares.2, from_to_squares.3)),
+                castling_intermediary_square: None,
                 sort_score: 0,
             });
         }
@@ -607,7 +608,7 @@ impl Board {
         // this could also be used to move the king out of check
         let opposing_side = if side == WHITE { BLACK } else { WHITE };
         let king_location = self.get_king_location(side);
-        let mut moves_attacking_king = generate_pseudo_legal_moves(&self.clone(), opposing_side, 1);
+        let mut moves_attacking_king = generate_pseudo_legal_moves(&self.clone(), opposing_side);
 
         moves_attacking_king.retain(|x| x.to == king_location);
 
