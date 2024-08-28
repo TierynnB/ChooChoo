@@ -230,7 +230,7 @@ pub fn generate_pawn_moves(
         let square_in_front = board.get_piece((index_of_square_in_front, column)); //board.board_array[index_of_square_in_front][column];
 
         // if square not empty, return.
-        if square_in_front == 0 && blocked == false {
+        if square_in_front == 0 && !blocked {
             moves.push(Move {
                 from: square,
                 from_piece: PAWN,

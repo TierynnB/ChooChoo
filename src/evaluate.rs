@@ -43,7 +43,7 @@ pub fn is_in_check(
     let opponent_colour = if side_to_check == WHITE { BLACK } else { WHITE };
 
     let king_location = board.get_king_location(side_to_check);
-
+    // println!("king location{:?}", king_location);
     for (row_index, row) in board.colour_array.iter().enumerate() {
         for (column_index, square_colour) in row.iter().enumerate() {
             if square_colour != &opponent_colour {
@@ -60,16 +60,30 @@ pub fn is_in_check(
             );
 
             if outcome {
+                // println!(
+                //     "king is attacked:{:?} from {}{}",
+                //     king_location, row_index, column_index
+                // );
+
                 return outcome;
             }
             if aditional_square_to_check.is_some() {
-                return is_attacked_by_piece_from_square(
+                let outcome = is_attacked_by_piece_from_square(
                     board,
                     (row_index, column_index),
                     piece_type,
                     aditional_square_to_check.unwrap(),
                     opponent_colour,
                 );
+
+                if outcome {
+                    // println!(
+                    //     "king is attacked:{:?} from {}{}",
+                    //     king_location, row_index, column_index
+                    // );
+
+                    return outcome;
+                }
             }
         }
     }

@@ -16,7 +16,7 @@ pub struct Move {
 impl Default for Move {
     fn default() -> Self {
         // return a default instance of Move
-        return Move { 
+        return Move {
             from: (0, 0),
             from_piece: 0,
             from_colour: 0,
