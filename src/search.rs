@@ -179,7 +179,7 @@ impl SearchEngine {
             if !first_call {
                 self.nodes += 1;
             } else if depth == 1 {
-                self.nodes = 1;
+                self.nodes += 1;
             } else {
                 self.nodes = 0;
             }
@@ -195,6 +195,7 @@ impl SearchEngine {
                     move_notation: generated_move.notation_move.clone(),
                     nodes: self.nodes,
                 });
+                self.nodes = 0;
             }
         }
         if first_call {

@@ -211,11 +211,13 @@ impl CommunicationManager {
             .expect("Invalid depth value");
         self.engine = SearchEngine::new();
         self.engine.perft(&mut self.board, depth, true);
-        println!("total nodes: {}", self.engine.nodes);
-        println!("root moves: {}", self.engine.move_nodes.len());
+        // println!("total nodes: {}", self.engine.nodes);
+        // println!("root moves: {}", self.engine.move_nodes.len());
         for root in self.engine.move_nodes.iter() {
             println!("{} - {}", root.move_notation, root.nodes);
         }
+        println!("total nodes: {}", self.engine.nodes);
+        println!("root moves: {}", self.engine.move_nodes.len());
         println!()
     }
     pub fn enable_uci(&mut self) {

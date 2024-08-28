@@ -36,13 +36,19 @@ pub fn get_pawn_attacks(
     board: &Board,
 ) -> Vec<(usize, usize)> {
     let mut attacking_squares: Vec<(usize, usize)> = vec![];
+    // does not include en passant
 
     let (row, column) = square;
-    let knight_move_steps: [(isize, isize); 8] = [(-1, 1), ()];
-    // knight can move in any direction, two squares in one direciton, then 1 square in the other.
+    let direction_of_pawns: isize = match side_to_generate_for {
+        1 => -1,
+        2 => 1,
+        _ => 0,
+    };
+    let pawn_attack_steps: [(isize, isize); 2] =
+        [(direction_of_pawns, 1), (direction_of_pawns, -1)];
 
     // if populated by same colour piece, no move
-    for (_index, move_steps) in knight_move_steps.iter().enumerate() {
+    for (_index, move_steps) in pawn_attack_steps.iter().enumerate() {
         // if out of bounds, stop
         if (row as isize + move_steps.0) < 0
             || (row as isize + move_steps.0) > 7
@@ -55,7 +61,7 @@ pub fn get_pawn_attacks(
             (row as isize + move_steps.0) as usize,
             (column as isize + move_steps.1) as usize,
         ));
-        if to_square_colour == side_to_generate_for {
+        if to_square_colour == side_to_generate_for || to_square_colour == EMPTY {
             continue;
         }
 
@@ -156,137 +162,62 @@ pub fn generate_pawn_moves(
         });
     }
 
-    // if there is a square diagonnally forward from the pawn possessed by enemy
-    let mut square_attack_colour;
-    let mut square_attack_piece;
-    if column + 1 < 7 {
-        square_attack_colour =
-            board.get_piece_colour((index_of_square_in_front as usize, column + 1));
-        square_attack_piece = board.get_piece((index_of_square_in_front as usize, column + 1));
+    // if there is a square diagonally forward from the pawn possessed by enemy
+    let attack_squares = get_pawn_attacks(square, side_to_generate_for, board);
 
-        if square_attack_colour != side_to_generate_for && square_attack_colour != 0 {
-            // if in the promotion row, you must also promote
-            if row == promotion_row {
-                for piece in [KNIGHT, BISHOP, ROOK, QUEEN] {
-                    moves.push(Move {
-                        from: square,
-                        from_piece: PAWN,
-                        to: (index_of_square_in_front as usize, column + 1),
-                        to_piece: square_attack_piece,
-                        from_colour: side_to_generate_for,
-                        to_colour: enemy_color,
-                        notation_move: convert_array_location_to_notation(
-                            square,
-                            (index_of_square_in_front as usize, column + 1),
-                            Some(match piece {
-                                1 => 'p'.to_string(),
-                                2 => 'n'.to_string(),
-                                3 => 'b'.to_string(),
-                                4 => 'r'.to_string(),
-                                5 => 'q'.to_string(),
-                                6 => 'k'.to_string(),
-                                0 => ' '.to_string(),
-                                -1 => ' '.to_string(),
-                                _ => ' '.to_string(),
-                            }),
-                        ),
-                        en_passant: false,
+    for attack_square in attack_squares {
+        let to_piece_type = board.get_piece((attack_square.0, attack_square.1));
+        let to_square_colour = board.get_piece_colour((attack_square.0, attack_square.1));
 
-                        promotion_to: Some(piece),
-                        castle_from_to_square: None,
-                        castling_intermediary_square: None,
-                        sort_score: 0,
-                    });
-                }
-            } else {
+        // if in the promotion row, you must also promote
+        if row == promotion_row {
+            for piece in [KNIGHT, BISHOP, ROOK, QUEEN] {
                 moves.push(Move {
                     from: square,
                     from_piece: PAWN,
-                    to: (index_of_square_in_front as usize, column + 1),
-                    to_piece: square_attack_piece,
+                    to: attack_square,
+                    to_piece: to_piece_type,
                     from_colour: side_to_generate_for,
-                    to_colour: enemy_color,
+                    to_colour: to_square_colour,
                     notation_move: convert_array_location_to_notation(
                         square,
-                        (index_of_square_in_front as usize, column + 1),
-                        None,
+                        attack_square,
+                        Some(match piece {
+                            1 => 'p'.to_string(),
+                            2 => 'n'.to_string(),
+                            3 => 'b'.to_string(),
+                            4 => 'r'.to_string(),
+                            5 => 'q'.to_string(),
+                            6 => 'k'.to_string(),
+                            0 => ' '.to_string(),
+                            -1 => ' '.to_string(),
+                            _ => ' '.to_string(),
+                        }),
                     ),
                     en_passant: false,
 
-                    promotion_to: None,
+                    promotion_to: Some(piece),
                     castle_from_to_square: None,
                     castling_intermediary_square: None,
                     sort_score: 0,
                 });
             }
-        }
-    }
-    // attack other diagonal
-    if column > 0 {
-        square_attack_colour = board.get_piece_colour((
-            index_of_square_in_front as usize,
-            (column as i8 - 1) as usize,
-        ));
+        } else {
+            moves.push(Move {
+                from: square,
+                from_piece: PAWN,
+                to: attack_square,
+                to_piece: to_piece_type,
+                from_colour: side_to_generate_for,
+                to_colour: to_square_colour,
+                notation_move: convert_array_location_to_notation(square, attack_square, None),
+                en_passant: false,
 
-        square_attack_piece = board.get_piece((
-            index_of_square_in_front as usize,
-            (column as i8 - 1) as usize,
-        ));
-        if square_attack_colour != side_to_generate_for && square_attack_colour != 0 {
-            // if in the promotion row, you must also promote
-            if row == promotion_row {
-                for piece in [KNIGHT, BISHOP, ROOK, QUEEN] {
-                    moves.push(Move {
-                        from: square,
-                        from_piece: PAWN,
-                        to: (index_of_square_in_front as usize, column - 1),
-                        to_piece: square_attack_piece,
-                        from_colour: side_to_generate_for,
-                        to_colour: enemy_color,
-                        notation_move: convert_array_location_to_notation(
-                            square,
-                            (index_of_square_in_front as usize, column - 1),
-                            Some(match piece {
-                                1 => 'p'.to_string(),
-                                2 => 'n'.to_string(),
-                                3 => 'b'.to_string(),
-                                4 => 'r'.to_string(),
-                                5 => 'q'.to_string(),
-                                6 => 'k'.to_string(),
-                                0 => ' '.to_string(),
-                                -1 => ' '.to_string(),
-                                _ => ' '.to_string(),
-                            }),
-                        ),
-                        en_passant: false,
-
-                        promotion_to: Some(piece),
-                        castle_from_to_square: None,
-                        castling_intermediary_square: None,
-                        sort_score: 0,
-                    });
-                }
-            } else {
-                moves.push(Move {
-                    from: square,
-                    from_piece: PAWN,
-                    to: (index_of_square_in_front as usize, column - 1),
-                    to_piece: square_attack_piece,
-                    from_colour: side_to_generate_for,
-                    to_colour: enemy_color,
-                    notation_move: convert_array_location_to_notation(
-                        square,
-                        (index_of_square_in_front as usize, column - 1),
-                        None,
-                    ),
-                    en_passant: false,
-
-                    promotion_to: None,
-                    castle_from_to_square: None,
-                    castling_intermediary_square: None,
-                    sort_score: 0,
-                });
-            }
+                promotion_to: None,
+                castle_from_to_square: None,
+                castling_intermediary_square: None,
+                sort_score: 0,
+            });
         }
     }
     if row == starting_row {
@@ -466,7 +397,11 @@ pub fn get_bishop_attacks(
             attacking_squares.push((
                 (row as isize + direction.0 * multiplier) as usize,
                 (column as isize + direction.1 * multiplier) as usize,
-            ))
+            ));
+            // if captured a piece, stop multiplying and look in new direction
+            if to_square_colour != side_to_generate_for && to_square_colour != EMPTY {
+                break;
+            }
         }
     }
 
@@ -504,11 +439,6 @@ pub fn generate_bishop_moves(
             castling_intermediary_square: None,
             sort_score: 0,
         });
-
-        // if captured a piece, stop multiplying and look in new direction
-        if to_square_colour != side_to_generate_for && to_square_colour != EMPTY {
-            break;
-        }
     }
 
     return moves;
@@ -544,7 +474,12 @@ pub fn get_rook_attacks(
             attacking_squares.push((
                 (row as isize + direction.0 * multiplier) as usize,
                 (column as isize + direction.1 * multiplier) as usize,
-            ))
+            ));
+
+            // if captured a piece, stop multiplying and look in new direction
+            if to_square_colour != side_to_generate_for && to_square_colour != EMPTY {
+                break;
+            }
         }
     }
 
@@ -557,7 +492,7 @@ pub fn generate_rook_moves(
 ) -> Vec<Move> {
     let mut moves: Vec<Move> = vec![];
 
-    let attack_squares = get_bishop_attacks(square, side_to_generate_for, board);
+    let attack_squares = get_rook_attacks(square, side_to_generate_for, board);
 
     for attack_square in attack_squares {
         let to_piece_type = board.get_piece((attack_square.0, attack_square.1));
@@ -582,16 +517,11 @@ pub fn generate_rook_moves(
             castling_intermediary_square: None,
             sort_score: 0,
         });
-
-        // if captured a piece, stop multiplying and look in new direction
-        if to_square_colour != side_to_generate_for && to_square_colour != EMPTY {
-            break;
-        }
     }
 
     return moves;
 }
-pub fn get_queen_attacks(
+pub fn get_queen_moves(
     square: (usize, usize),
     side_to_generate_for: i8,
     board: &Board,
@@ -619,6 +549,7 @@ pub fn get_queen_attacks(
             {
                 continue;
             }
+
             let to_square_colour = board.get_piece_colour((
                 (row as isize + direction.0 * multiplier) as usize,
                 (column as isize + direction.1 * multiplier) as usize,
@@ -631,7 +562,12 @@ pub fn get_queen_attacks(
             attacking_squares.push((
                 (row as isize + direction.0 * multiplier) as usize,
                 (column as isize + direction.1 * multiplier) as usize,
-            ))
+            ));
+
+            // if captured a piece, stop multiplying and look in new direction
+            if to_square_colour != side_to_generate_for && to_square_colour != EMPTY {
+                break;
+            }
         }
     }
 
@@ -644,7 +580,7 @@ pub fn generate_queen_moves(
 ) -> Vec<Move> {
     let mut moves: Vec<Move> = vec![];
 
-    let attack_squares = get_queen_attacks(square, side_to_generate_for, board);
+    let attack_squares = get_queen_moves(square, side_to_generate_for, board);
 
     for attack_square in attack_squares {
         let to_piece_type = board.get_piece((attack_square.0, attack_square.1));
@@ -669,11 +605,6 @@ pub fn generate_queen_moves(
             castling_intermediary_square: None,
             sort_score: 0,
         });
-
-        // if captured a piece, stop multiplying and look in new direction
-        if to_square_colour != side_to_generate_for && to_square_colour != EMPTY {
-            break;
-        }
     }
 
     return moves;
@@ -780,9 +711,6 @@ pub fn generate_king_moves(
                 && board.is_square_empty("b1")
                 && board.is_square_empty("c1")
                 && board.is_square_empty("d1")
-            // && !castling_squares_being_attacked.c1_attacked
-            // && !castling_squares_being_attacked.d1_attacked
-            // && !castling_squares_being_attacked.e1_attacked
             {
                 //check if moving into d1 is check.
 
@@ -801,15 +729,12 @@ pub fn generate_king_moves(
                     en_passant: false,
 
                     promotion_to: None,
-                    castle_from_to_square: Some((square, (row, (column as isize - 2) as usize))),
+                    castle_from_to_square: Some(((7, 0), (7, 3))),
                     castling_intermediary_square: Some((7, 3)), //d1
                     sort_score: 0,
                 });
             }
             if board.h1_rook_not_moved && board.is_square_empty("f1") && board.is_square_empty("g1")
-            // && !castling_squares_being_attacked.f1_attacked
-            // && !castling_squares_being_attacked.g1_attacked
-            // && !castling_squares_being_attacked.e1_attacked
             {
                 moves.push(Move {
                     from: square,
@@ -826,7 +751,7 @@ pub fn generate_king_moves(
                     en_passant: false,
 
                     promotion_to: None,
-                    castle_from_to_square: Some((square, (row, (column as isize + 2) as usize))),
+                    castle_from_to_square: Some(((7, 7), (7, 5))),
                     castling_intermediary_square: Some((7, 5)), //f1
                     sort_score: 0,
                 });
@@ -838,9 +763,6 @@ pub fn generate_king_moves(
                 && board.is_square_empty("b8")
                 && board.is_square_empty("c8")
                 && board.is_square_empty("d8")
-            // && !castling_squares_being_attacked.c8_attacked
-            // && !castling_squares_being_attacked.d8_attacked
-            // && !castling_squares_being_attacked.e8_attacked
             {
                 moves.push(Move {
                     from: square,
@@ -857,15 +779,12 @@ pub fn generate_king_moves(
                     en_passant: false,
 
                     promotion_to: None,
-                    castle_from_to_square: Some((square, (row, (column as isize - 2) as usize))),
+                    castle_from_to_square: Some(((0, 0), (0, 3))),
                     castling_intermediary_square: Some((0, 3)), //d8
                     sort_score: 0,
                 });
             }
             if board.h8_rook_not_moved && board.is_square_empty("f8") && board.is_square_empty("g8")
-            // && !castling_squares_being_attacked.f8_attacked
-            // && !castling_squares_being_attacked.g8_attacked
-            // && !castling_squares_being_attacked.e8_attacked
             {
                 moves.push(Move {
                     from: square,
@@ -882,7 +801,7 @@ pub fn generate_king_moves(
                     en_passant: false,
 
                     promotion_to: None,
-                    castle_from_to_square: Some((square, (row, (column as isize + 2) as usize))),
+                    castle_from_to_square: Some(((0, 7), (0, 5))),
                     castling_intermediary_square: Some((0, 5)), //f8
                     sort_score: 0,
                 });

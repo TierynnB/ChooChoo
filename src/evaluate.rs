@@ -1,5 +1,3 @@
-use rand::distributions::Open01;
-
 use crate::board::Board;
 use crate::{constants::*, movegen::*};
 
@@ -52,7 +50,8 @@ pub fn is_in_check(
                 continue;
             }
             let piece_type = board.get_piece((row_index, column_index));
-            let mut outcome = is_attacked_by_piece_from_square(
+
+            let outcome = is_attacked_by_piece_from_square(
                 board,
                 (row_index, column_index),
                 piece_type,
@@ -64,7 +63,7 @@ pub fn is_in_check(
                 return outcome;
             }
             if aditional_square_to_check.is_some() {
-                outcome = is_attacked_by_piece_from_square(
+                return is_attacked_by_piece_from_square(
                     board,
                     (row_index, column_index),
                     piece_type,
@@ -95,17 +94,21 @@ pub fn is_attacked_by_piece_from_square(
             if difference_in_column > 1 || difference_in_row > 1 {
                 return false;
             };
-
-            // check if pawn is diagonal from the square_to.
-
-            // include en passant? or not important for checking is_in_check
+            for attack in get_pawn_attacks(square_from, side_to_generate_for, board) {
+                if attack == square_to {
+                    return true;
+                }
+            }
         }
         KNIGHT => {
             if difference_in_row > 3 || difference_in_column > 3 {
                 return false;
             };
+            // println!("generating knight attacks");
             for attack in get_knight_attacks(square_from, side_to_generate_for, board) {
+                // println!("attack: {:?}", attack);
                 if attack == square_to {
+                    // println!("attack found: {:?}", attack);
                     return true;
                 }
             }
@@ -141,7 +144,7 @@ pub fn is_attacked_by_piece_from_square(
             {
                 return false;
             }
-            for attack in get_queen_attacks(square_from, side_to_generate_for, board) {
+            for attack in get_queen_moves(square_from, side_to_generate_for, board) {
                 if attack == square_to {
                     return true;
                 }

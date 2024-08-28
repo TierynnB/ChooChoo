@@ -183,16 +183,6 @@ impl Board {
     }
 
     pub fn make_move(&mut self, move_to_do: &Move) {
-        // println!("hash length: {}", self.hash_of_previous_positions.len());
-        // println!("ply_record length: {}", self.ply_record.len());
-        // if move_to_do.from.0 > 10 || move_to_do.to.0 > 10 {
-        //     println!("{} {}", move_to_do.from.0, move_to_do.to.0);
-        //     println!("{} {}", move_to_do.from.1, move_to_do.to.1);
-        //     println!("{} {}", move_to_do.from_piece, move_to_do.to_piece);
-        //     println!("{}", move_to_do.notation_move);
-        // }
-        // copy data to record
-
         self.ply_record.push(PlyData {
             ply: self.ply,
             side_to_move: self.side_to_move,
@@ -218,36 +208,29 @@ impl Board {
                     == 1
                 && self.en_passant_location.unwrap().0 == move_to_do.from.0
             {
-                if move_to_do.to.0 > 10 || move_to_do.to.1 > 10 {
-                    println!("{} {}", move_to_do.from.0, move_to_do.to.0);
-                    println!(" enpassant");
-                }
                 // the player is doing en passant.
                 // so remove the pawn at the en passant location
                 self.set_piece_and_colour(self.en_passant_location.unwrap(), EMPTY, EMPTY)
             }
         }
-        // set board level en passant information
-        self.en_passant_location = Some(move_to_do.to);
 
-        if move_to_do.to.0 > 10 || move_to_do.to.1 > 10 {
-            print_board(self);
-            println!("{} {}", move_to_do.from.0, move_to_do.from.1);
-            println!("{} {}", move_to_do.to.0, move_to_do.to.1);
-            println!("{} {}", move_to_do.from_piece, move_to_do.to_piece);
-            println!("{}", move_to_do.notation_move);
+        // set board level en passant information
+        if move_to_do.en_passant {
+            self.en_passant_location = Some(move_to_do.to);
         }
 
         // hanbdle promotion here.
         self.set_piece_and_colour(
             move_to_do.to,
-            move_to_do
-                .promotion_to
-                .unwrap_or(self.get_piece(move_to_do.from)),
+            move_to_do.promotion_to.unwrap_or(move_to_do.from_piece),
             move_to_do.from_colour,
         );
 
         self.set_piece_and_colour(move_to_do.from, EMPTY, EMPTY);
+
+        if move_to_do.from_piece == KING && self.has_king_moved == false {
+            self.has_king_moved = true;
+        }
 
         // need to know if castling
         if move_to_do.from_piece == KING
@@ -287,30 +270,11 @@ impl Board {
             }
         }
 
-        // need to know if a rook has been captured
-        // need to know if castling
-        if move_to_do.to_piece == ROOK
-            && (self.a1_rook_not_moved
-                || self.a8_rook_not_moved
-                || self.h1_rook_not_moved
-                || self.h8_rook_not_moved)
-        {
-            // check if rook moved from a1 or h1 or a8 or h8
-            if move_to_do.to == (7, 0) {
-                self.a1_rook_not_moved = false;
-            } else if move_to_do.to == (7, 7) {
-                self.h1_rook_not_moved = false;
-            } else if move_to_do.to == (0, 0) {
-                self.a8_rook_not_moved = false;
-            } else if move_to_do.to == (0, 7) {
-                self.h8_rook_not_moved = false;
-            }
-        }
-
         // If current move castling, move rook too. king alreadyt moved
         if move_to_do.castle_from_to_square.is_some() {
             let castle_from_to_square = move_to_do.castle_from_to_square.unwrap();
 
+            // this castleFromToSquare needs to be set to the rook movements, right now its the kings.
             // set destination square
             self.set_piece_and_colour(castle_from_to_square.1, ROOK, move_to_do.from_colour);
 
@@ -598,6 +562,7 @@ impl Board {
                 return location;
             }
         }
+        print_board(self);
         panic!("King not found!");
     }
     pub fn is_side_in_check(&self, side: i8) -> bool {
