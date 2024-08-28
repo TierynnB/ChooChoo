@@ -206,7 +206,6 @@ pub fn convert_notation_to_location(chess_move: &str) -> Option<(usize, usize)> 
     // get first two characters
     for (board_row_index, board_row) in constants::BOARD_COORDINATES.iter().enumerate() {
         for (column_index, square_coordinate) in board_row.iter().enumerate() {
-            // println!("{}", square_coordinate);
             if *square_coordinate == chess_move {
                 location.0 = board_row_index;
                 location.1 = column_index;

@@ -27,6 +27,7 @@ pub enum CommandTypes {
     Evaluate,
     Perft,
     MakeMove,
+    MakeUnMake,
     Bench,
     GetFen,
     Empty,
@@ -72,6 +73,7 @@ impl CommunicationManager {
             "newgame" => CommandTypes::NewGame,
             "ucinewgame" => CommandTypes::UciNewGame,
             "setoption" => CommandTypes::SetOption,
+            "makeunmake" => CommandTypes::MakeUnMake,
             // "splitperft" => CommandTypes::SplitPerft,
             // "perftsuite" => CommandTypes::PerftSuite,
             "makemove" => CommandTypes::MakeMove,
@@ -201,7 +203,21 @@ impl CommunicationManager {
             }
         }
     }
+    pub fn make_unmake_move(&mut self, command_text: &str) {
+        let mut command_token_split = command_text.split_ascii_whitespace();
+        let _first_token = command_token_split.next().expect("no token");
 
+        match command_token_split.next() {
+            None => println!("no more commands"),
+            Some(arg_2) => {
+                let move_to_do = self.board.convert_notation_to_move(arg_2.to_string());
+                self.board.make_move(move_to_do.as_ref().unwrap());
+                print_board(&self.board);
+                self.board.un_make_move(move_to_do.as_ref().unwrap());
+                print_board(&self.board);
+            }
+        }
+    }
     pub fn perft(&mut self, command_text: &str) {
         let depth: i8 = command_text
             .split_ascii_whitespace()
@@ -302,6 +318,7 @@ pub fn run() {
             CommandTypes::Position => manager.position(&buffer),
             CommandTypes::Search => manager.search(&buffer),
             CommandTypes::MakeMove => manager.make_move(&buffer),
+            CommandTypes::MakeUnMake => manager.make_unmake_move(&buffer),
             CommandTypes::Perft => manager.perft(&buffer),
             CommandTypes::Evaluate => manager.evaluate(),
             CommandTypes::NewGame => manager.board.reset_board(),

@@ -6,7 +6,8 @@ use std::hash::Hasher;
 pub struct PlyData {
     pub ply: i32,
     pub side_to_move: i8,
-    has_king_moved: bool,
+    has_white_king_moved: bool,
+    has_black_king_moved: bool,
     a1_rook_not_moved: bool, // defaults to true
     a8_rook_not_moved: bool, // defaults to true
     h1_rook_not_moved: bool, // defaults to true
@@ -20,7 +21,8 @@ pub struct Board {
     pub colour_array: [[i8; 8]; 8],
     pub white_attacks: [[bool; 8]; 8],
     pub black_attacks: [[bool; 8]; 8],
-    pub has_king_moved: bool,
+    pub has_white_king_moved: bool,
+    pub has_black_king_moved: bool,
     pub a1_rook_not_moved: bool, // defaults to true
     pub a8_rook_not_moved: bool, // defaults to true
     pub h1_rook_not_moved: bool, // defaults to true
@@ -71,7 +73,8 @@ impl Board {
             a8_rook_not_moved: true,
             h1_rook_not_moved: true,
             h8_rook_not_moved: true,
-            has_king_moved: false,
+            has_white_king_moved: false,
+            has_black_king_moved: false,
             // en_passant: false,
             en_passant_location: None,
             ply: 0,
@@ -139,7 +142,8 @@ impl Board {
         self.h8_rook_not_moved = true;
         // self.en_passant = false;
         self.en_passant_location = None;
-        self.has_king_moved = false;
+        self.has_white_king_moved = false;
+        self.has_black_king_moved = false;
         self.ply = 0;
         self.side_to_move = 1;
         self.hash_of_previous_positions = Vec::new();
@@ -186,7 +190,8 @@ impl Board {
         self.ply_record.push(PlyData {
             ply: self.ply,
             side_to_move: self.side_to_move,
-            has_king_moved: self.has_king_moved,
+            has_white_king_moved: self.has_white_king_moved,
+            has_black_king_moved: self.has_black_king_moved,
             a1_rook_not_moved: self.a1_rook_not_moved,
             a8_rook_not_moved: self.a8_rook_not_moved,
             h1_rook_not_moved: self.h1_rook_not_moved,
@@ -228,26 +233,11 @@ impl Board {
 
         self.set_piece_and_colour(move_to_do.from, EMPTY, EMPTY);
 
-        if move_to_do.from_piece == KING && self.has_king_moved == false {
-            self.has_king_moved = true;
-        }
-
-        // need to know if castling
-        if move_to_do.from_piece == KING
-            && (self.a1_rook_not_moved
-                || self.a8_rook_not_moved
-                || self.h1_rook_not_moved
-                || self.h8_rook_not_moved)
-        {
-            // check if king moved from e1 or h1 or a8 or h8
-            if move_to_do.from == (7, 4) && move_to_do.to == (7, 2) {
-                self.a1_rook_not_moved = false;
-            } else if move_to_do.from == (7, 4) && move_to_do.to == (7, 6) {
-                self.h1_rook_not_moved = false;
-            } else if move_to_do.from == (0, 4) && move_to_do.to == (0, 2) {
-                self.a8_rook_not_moved = false;
-            } else if move_to_do.from == (0, 4) && move_to_do.to == (0, 7) {
-                self.h8_rook_not_moved = false;
+        if move_to_do.from_piece == KING {
+            if move_to_do.from_colour == WHITE && !self.has_white_king_moved {
+                self.has_white_king_moved = true;
+            } else if move_to_do.from_colour == BLACK && !self.has_white_king_moved {
+                self.has_black_king_moved = true;
             }
         }
 
@@ -279,6 +269,25 @@ impl Board {
             self.set_piece_and_colour(castle_from_to_square.1, ROOK, move_to_do.from_colour);
 
             self.set_piece_and_colour(castle_from_to_square.0, EMPTY, EMPTY);
+        }
+
+        // need to know if castling
+        if move_to_do.from_piece == KING
+            && (self.a1_rook_not_moved
+                || self.a8_rook_not_moved
+                || self.h1_rook_not_moved
+                || self.h8_rook_not_moved)
+        {
+            // check if king moved from e1 or h1 or a8 or h8
+            if move_to_do.from == (7, 4) && move_to_do.to == (7, 2) {
+                self.a1_rook_not_moved = false;
+            } else if move_to_do.from == (7, 4) && move_to_do.to == (7, 6) {
+                self.h1_rook_not_moved = false;
+            } else if move_to_do.from == (0, 4) && move_to_do.to == (0, 2) {
+                self.a8_rook_not_moved = false;
+            } else if move_to_do.from == (0, 4) && move_to_do.to == (0, 7) {
+                self.h8_rook_not_moved = false;
+            }
         }
 
         self.add_hash_of_current_position();
@@ -324,6 +333,15 @@ impl Board {
             chess_move.from_colour,
         );
 
+        // set rooks back
+        if chess_move.castle_from_to_square.is_some() {
+            let castle_from_to_square = chess_move.castle_from_to_square.unwrap();
+
+            // this castleFromToSquare needs to be set to the rook movements, right now its the kings.
+
+            self.set_piece_and_colour(castle_from_to_square.0, ROOK, chess_move.from_colour);
+            self.set_piece_and_colour(castle_from_to_square.1, EMPTY, EMPTY);
+        }
         self.hash_of_previous_positions.pop();
 
         self.ply -= 1;
@@ -342,7 +360,8 @@ impl Board {
             // aply previous ply data to self.
             self.ply = previous_ply_data.ply;
             self.side_to_move = previous_ply_data.side_to_move;
-            self.has_king_moved = previous_ply_data.has_king_moved;
+            self.has_white_king_moved = previous_ply_data.has_white_king_moved;
+            self.has_black_king_moved = previous_ply_data.has_black_king_moved;
             self.a1_rook_not_moved = previous_ply_data.a1_rook_not_moved;
             self.a8_rook_not_moved = previous_ply_data.a8_rook_not_moved;
             self.h1_rook_not_moved = previous_ply_data.h1_rook_not_moved;
@@ -357,11 +376,12 @@ impl Board {
         let mut converted_move = Move::default();
 
         // convert "e1g1" "e1c1" "e8g8" "e8c8" into O-O or O-O-O
-        if !self.has_king_moved
+        if (!self.has_white_king_moved
             && ((chess_move == "e1g1" && self.h1_rook_not_moved)
-                || (chess_move == "e1c1" && self.a1_rook_not_moved)
-                || (chess_move == "e8g8" && self.h8_rook_not_moved)
-                || (chess_move == "e8c8" && self.a8_rook_not_moved))
+                || (chess_move == "e1c1" && self.a1_rook_not_moved)))
+            && (!self.has_black_king_moved
+                && ((chess_move == "e8g8" && self.h8_rook_not_moved)
+                    || (chess_move == "e8c8" && self.a8_rook_not_moved)))
         {
             chess_move = match chess_move.as_str() {
                 "e1g1" => "O-O".to_string(),
@@ -373,7 +393,10 @@ impl Board {
         }
 
         // castling is a special case
-        if !self.has_king_moved && (chess_move == "O-O" || chess_move == "O-O-O") {
+        if ((self.side_to_move == WHITE && !self.has_white_king_moved)
+            || (self.side_to_move == BLACK && !self.has_black_king_moved))
+            && (chess_move == "O-O" || chess_move == "O-O-O")
+        {
             let from_to_squares = match chess_move.as_str() {
                 "O-O" => {
                     if self.side_to_move == WHITE {
@@ -654,7 +677,9 @@ pub fn print_board(board: &Board) {
         board.en_passant_location.unwrap_or((0, 0))
     );
 
-    println!("has the king moved: {}", board.has_king_moved);
+    println!("has the white king moved: {}", board.has_white_king_moved);
+
+    println!("has the black king moved: {}", board.has_black_king_moved);
     println!("game ply: {}", board.ply);
     println!("to move: {}", board.side_to_move);
 }

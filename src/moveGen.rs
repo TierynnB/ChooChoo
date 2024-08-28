@@ -705,107 +705,104 @@ pub fn generate_king_moves(
     }
 
     // castling
-    if !board.has_king_moved {
-        if side_to_generate_for == WHITE {
-            if board.a1_rook_not_moved
-                && board.is_square_empty("b1")
-                && board.is_square_empty("c1")
-                && board.is_square_empty("d1")
-            {
-                //check if moving into d1 is check.
 
-                moves.push(Move {
-                    from: square,
-                    from_piece: KING,
-                    to: (row, (column as isize - 2) as usize),
-                    to_piece: EMPTY,
-                    from_colour: side_to_generate_for,
-                    to_colour: EMPTY,
-                    notation_move: convert_array_location_to_notation(
-                        square,
-                        (row, (column as isize - 2) as usize),
-                        None,
-                    ),
-                    en_passant: false,
+    if !board.has_white_king_moved && side_to_generate_for == WHITE {
+        if board.a1_rook_not_moved
+            && board.is_square_empty("b1")
+            && board.is_square_empty("c1")
+            && board.is_square_empty("d1")
+        {
+            //check if moving into d1 is check.
 
-                    promotion_to: None,
-                    castle_from_to_square: Some(((7, 0), (7, 3))),
-                    castling_intermediary_square: Some((7, 3)), //d1
-                    sort_score: 0,
-                });
-            }
-            if board.h1_rook_not_moved && board.is_square_empty("f1") && board.is_square_empty("g1")
-            {
-                moves.push(Move {
-                    from: square,
-                    from_piece: KING,
-                    to: (row, (column as isize + 2) as usize),
-                    to_piece: EMPTY,
-                    from_colour: side_to_generate_for,
-                    to_colour: EMPTY,
-                    notation_move: convert_array_location_to_notation(
-                        square,
-                        (row, (column as isize + 2) as usize),
-                        None,
-                    ),
-                    en_passant: false,
+            moves.push(Move {
+                from: square,
+                from_piece: KING,
+                to: (row, (column as isize - 2) as usize),
+                to_piece: EMPTY,
+                from_colour: side_to_generate_for,
+                to_colour: EMPTY,
+                notation_move: convert_array_location_to_notation(
+                    square,
+                    (row, (column as isize - 2) as usize),
+                    None,
+                ),
+                en_passant: false,
 
-                    promotion_to: None,
-                    castle_from_to_square: Some(((7, 7), (7, 5))),
-                    castling_intermediary_square: Some((7, 5)), //f1
-                    sort_score: 0,
-                });
-            }
+                promotion_to: None,
+                castle_from_to_square: Some(((7, 0), (7, 3))),
+                castling_intermediary_square: Some((7, 3)), //d1
+                sort_score: 0,
+            });
         }
+        if board.h1_rook_not_moved && board.is_square_empty("f1") && board.is_square_empty("g1") {
+            moves.push(Move {
+                from: square,
+                from_piece: KING,
+                to: (row, (column as isize + 2) as usize),
+                to_piece: EMPTY,
+                from_colour: side_to_generate_for,
+                to_colour: EMPTY,
+                notation_move: convert_array_location_to_notation(
+                    square,
+                    (row, (column as isize + 2) as usize),
+                    None,
+                ),
+                en_passant: false,
 
-        if side_to_generate_for == BLACK {
-            if board.a8_rook_not_moved
-                && board.is_square_empty("b8")
-                && board.is_square_empty("c8")
-                && board.is_square_empty("d8")
-            {
-                moves.push(Move {
-                    from: square,
-                    from_piece: KING,
-                    to: (row, (column as isize - 2) as usize),
-                    to_piece: EMPTY,
-                    from_colour: side_to_generate_for,
-                    to_colour: EMPTY,
-                    notation_move: convert_array_location_to_notation(
-                        square,
-                        (row, (column as isize - 2) as usize),
-                        None,
-                    ),
-                    en_passant: false,
+                promotion_to: None,
+                castle_from_to_square: Some(((7, 7), (7, 5))),
+                castling_intermediary_square: Some((7, 5)), //f1
+                sort_score: 0,
+            });
+        }
+    }
 
-                    promotion_to: None,
-                    castle_from_to_square: Some(((0, 0), (0, 3))),
-                    castling_intermediary_square: Some((0, 3)), //d8
-                    sort_score: 0,
-                });
-            }
-            if board.h8_rook_not_moved && board.is_square_empty("f8") && board.is_square_empty("g8")
-            {
-                moves.push(Move {
-                    from: square,
-                    from_piece: KING,
-                    to: (row, (column as isize + 2) as usize),
-                    to_piece: EMPTY,
-                    from_colour: side_to_generate_for,
-                    to_colour: EMPTY,
-                    notation_move: convert_array_location_to_notation(
-                        square,
-                        (row, (column as isize + 2) as usize),
-                        None,
-                    ),
-                    en_passant: false,
+    if !board.has_black_king_moved && side_to_generate_for == BLACK {
+        if board.a8_rook_not_moved
+            && board.is_square_empty("b8")
+            && board.is_square_empty("c8")
+            && board.is_square_empty("d8")
+        {
+            moves.push(Move {
+                from: square,
+                from_piece: KING,
+                to: (row, (column as isize - 2) as usize),
+                to_piece: EMPTY,
+                from_colour: side_to_generate_for,
+                to_colour: EMPTY,
+                notation_move: convert_array_location_to_notation(
+                    square,
+                    (row, (column as isize - 2) as usize),
+                    None,
+                ),
+                en_passant: false,
 
-                    promotion_to: None,
-                    castle_from_to_square: Some(((0, 7), (0, 5))),
-                    castling_intermediary_square: Some((0, 5)), //f8
-                    sort_score: 0,
-                });
-            }
+                promotion_to: None,
+                castle_from_to_square: Some(((0, 0), (0, 3))),
+                castling_intermediary_square: Some((0, 3)), //d8
+                sort_score: 0,
+            });
+        }
+        if board.h8_rook_not_moved && board.is_square_empty("f8") && board.is_square_empty("g8") {
+            moves.push(Move {
+                from: square,
+                from_piece: KING,
+                to: (row, (column as isize + 2) as usize),
+                to_piece: EMPTY,
+                from_colour: side_to_generate_for,
+                to_colour: EMPTY,
+                notation_move: convert_array_location_to_notation(
+                    square,
+                    (row, (column as isize + 2) as usize),
+                    None,
+                ),
+                en_passant: false,
+
+                promotion_to: None,
+                castle_from_to_square: Some(((0, 7), (0, 5))),
+                castling_intermediary_square: Some((0, 5)), //f8
+                sort_score: 0,
+            });
         }
     }
 
