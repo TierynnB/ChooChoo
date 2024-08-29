@@ -33,6 +33,7 @@ pub struct Board {
     pub hash_of_previous_positions: Vec<String>,
     pub ply_record: Vec<PlyData>,
     pub player_colour: i8,
+    pub move_list: Vec<Move>,
 }
 
 impl Board {
@@ -83,6 +84,7 @@ impl Board {
             ply_record: Vec::new(),
             // running_evaluation: 0,
             player_colour: 1,
+            move_list: Vec::new(),
         };
     }
     pub fn get_attacking_squares(&self, colour: i8) -> [[bool; 8]; 8] {
@@ -148,6 +150,7 @@ impl Board {
         self.side_to_move = 1;
         self.hash_of_previous_positions = Vec::new();
         self.ply_record = Vec::new();
+        self.move_list = Vec::new();
         // self.running_evaluation = 0;
         self.player_colour = 1;
     }
@@ -187,6 +190,18 @@ impl Board {
     }
 
     pub fn make_move(&mut self, move_to_do: &Move) {
+
+        self.move_list.push(move_to_do.clone());
+        // if move_to_do.to == (4, 3) {
+        //     println!(
+        //         "attacking d4 pawn: {:?} piece: {} colour: {} to piece {}, to colour {}",
+        //         move_to_do.from,
+        //         move_to_do.from_piece,
+        //         move_to_do.from_colour,
+        //         move_to_do.to_piece,
+        //         move_to_do.to_colour
+        //     );
+        // }
         self.ply_record.push(PlyData {
             ply: self.ply,
             side_to_move: self.side_to_move,
@@ -222,6 +237,8 @@ impl Board {
         // set board level en passant information
         if move_to_do.en_passant {
             self.en_passant_location = Some(move_to_do.to);
+        } else{
+            self.en_passant_location = None;
         }
 
         // hanbdle promotion here.
@@ -324,6 +341,7 @@ impl Board {
 
     /// make move does not validate the move, it just does it, overwritting the destination square
     pub fn un_make_move(&mut self, chess_move: &Move) {
+    self.move_list.pop();
         // the move should retain the original pieces in each square.
         self.set_piece_and_colour(chess_move.to, chess_move.to_piece, chess_move.to_colour);
 
@@ -342,6 +360,8 @@ impl Board {
             self.set_piece_and_colour(castle_from_to_square.0, ROOK, chess_move.from_colour);
             self.set_piece_and_colour(castle_from_to_square.1, EMPTY, EMPTY);
         }
+
+        // does this handle enpassant
         self.hash_of_previous_positions.pop();
 
         self.ply -= 1;
@@ -586,6 +606,9 @@ impl Board {
             }
         }
         print_board(self);
+        for move_item in &self.move_list{
+            println!("move: {}", move_item.notation_move);
+        }
         panic!("King not found!");
     }
     pub fn is_side_in_check(&self, side: i8) -> bool {

@@ -34,6 +34,7 @@ pub enum CommandTypes {
     Invalid, //
     Quit,    //
     Search,  //
+    MoveList,
     Help,
 }
 
@@ -74,6 +75,7 @@ impl CommunicationManager {
             "ucinewgame" => CommandTypes::UciNewGame,
             "setoption" => CommandTypes::SetOption,
             "makeunmake" => CommandTypes::MakeUnMake,
+            "movelist" => CommandTypes::MoveList,
             // "splitperft" => CommandTypes::SplitPerft,
             // "perftsuite" => CommandTypes::PerftSuite,
             "makemove" => CommandTypes::MakeMove,
@@ -324,6 +326,11 @@ pub fn run() {
             CommandTypes::NewGame => manager.board.reset_board(),
             CommandTypes::PrintState => print_board(&manager.board),
             CommandTypes::UciNewGame => {} // do nothing
+            CommandTypes::MoveList => {
+                for move_item in &manager.board.move_list{
+                    println!("move {}", move_item.notation_move);
+                }
+            }
             CommandTypes::Invalid => {
                 println!("invalid or unsupported command");
                 println!("{}", &buffer);
