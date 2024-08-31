@@ -1,17 +1,15 @@
 use crate::moves::Move;
-use crate::{constants::*, conversion::*, movegen::*};
+use crate::{constants::*, conversion::*, evaluate};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hasher;
 #[derive(Clone)]
 pub struct PlyData {
     pub ply: i32,
     pub side_to_move: i8,
-    has_white_king_moved: bool,
-    has_black_king_moved: bool,
-    a1_rook_not_moved: bool, // defaults to true
-    a8_rook_not_moved: bool, // defaults to true
-    h1_rook_not_moved: bool, // defaults to true
-    h8_rook_not_moved: bool, // defaults to true
+    pub can_castle_a1: bool,
+    pub can_castle_a8: bool,
+    pub can_castle_h1: bool,
+    pub can_castle_h8: bool,
     en_passant_location: Option<(usize, usize)>,
 }
 
@@ -21,12 +19,12 @@ pub struct Board {
     pub colour_array: [[i8; 8]; 8],
     pub white_attacks: [[bool; 8]; 8],
     pub black_attacks: [[bool; 8]; 8],
-    pub has_white_king_moved: bool,
-    pub has_black_king_moved: bool,
-    pub a1_rook_not_moved: bool, // defaults to true
-    pub a8_rook_not_moved: bool, // defaults to true
-    pub h1_rook_not_moved: bool, // defaults to true
-    pub h8_rook_not_moved: bool, // defaults to true
+
+    pub can_castle_a1: bool,
+    pub can_castle_a8: bool,
+    pub can_castle_h1: bool,
+    pub can_castle_h8: bool,
+
     pub en_passant_location: Option<(usize, usize)>,
     pub ply: i32,
     pub side_to_move: i8,
@@ -70,12 +68,12 @@ impl Board {
             colour_array,
             white_attacks,
             black_attacks,
-            a1_rook_not_moved: true,
-            a8_rook_not_moved: true,
-            h1_rook_not_moved: true,
-            h8_rook_not_moved: true,
-            has_white_king_moved: false,
-            has_black_king_moved: false,
+
+            can_castle_a1: true,
+            can_castle_a8: true,
+            can_castle_h1: true,
+            can_castle_h8: true,
+
             // en_passant: false,
             en_passant_location: None,
             ply: 0,
@@ -138,14 +136,16 @@ impl Board {
             [1, 1, 1, 1, 1, 1, 1, 1],
             [1, 1, 1, 1, 1, 1, 1, 1],
         ];
-        self.a1_rook_not_moved = true;
-        self.h1_rook_not_moved = true;
-        self.a8_rook_not_moved = true;
-        self.h8_rook_not_moved = true;
+
         // self.en_passant = false;
         self.en_passant_location = None;
-        self.has_white_king_moved = false;
-        self.has_black_king_moved = false;
+
+        self.can_castle_a1 = false;
+        self.can_castle_h1 = false;
+
+        self.can_castle_a8 = false;
+        self.can_castle_h8 = false;
+
         self.ply = 0;
         self.side_to_move = 1;
         self.hash_of_previous_positions = Vec::new();
@@ -190,28 +190,17 @@ impl Board {
     }
 
     pub fn make_move(&mut self, move_to_do: &Move) {
-
         self.move_list.push(move_to_do.clone());
-        // if move_to_do.to == (4, 3) {
-        //     println!(
-        //         "attacking d4 pawn: {:?} piece: {} colour: {} to piece {}, to colour {}",
-        //         move_to_do.from,
-        //         move_to_do.from_piece,
-        //         move_to_do.from_colour,
-        //         move_to_do.to_piece,
-        //         move_to_do.to_colour
-        //     );
-        // }
+
         self.ply_record.push(PlyData {
             ply: self.ply,
             side_to_move: self.side_to_move,
-            has_white_king_moved: self.has_white_king_moved,
-            has_black_king_moved: self.has_black_king_moved,
-            a1_rook_not_moved: self.a1_rook_not_moved,
-            a8_rook_not_moved: self.a8_rook_not_moved,
-            h1_rook_not_moved: self.h1_rook_not_moved,
-            h8_rook_not_moved: self.h8_rook_not_moved,
+
             en_passant_location: self.en_passant_location,
+            can_castle_a1: self.can_castle_a1,
+            can_castle_a8: self.can_castle_a8,
+            can_castle_h1: self.can_castle_h1,
+            can_castle_h8: self.can_castle_h8,
         });
 
         // if enpassant was set at board level, and a pawn just moved to an empty square, behind the en passant locaiton
@@ -237,7 +226,7 @@ impl Board {
         // set board level en passant information
         if move_to_do.en_passant {
             self.en_passant_location = Some(move_to_do.to);
-        } else{
+        } else {
             self.en_passant_location = None;
         }
 
@@ -251,29 +240,23 @@ impl Board {
         self.set_piece_and_colour(move_to_do.from, EMPTY, EMPTY);
 
         if move_to_do.from_piece == KING {
-            if move_to_do.from_colour == WHITE && !self.has_white_king_moved {
-                self.has_white_king_moved = true;
-            } else if move_to_do.from_colour == BLACK && !self.has_white_king_moved {
-                self.has_black_king_moved = true;
+            if move_to_do.from_colour == WHITE {
+                self.can_castle_a1 = false;
+                self.can_castle_h1 = false;
+            } else if move_to_do.from_colour == BLACK {
+                self.can_castle_a8 = false;
+                self.can_castle_h8 = false;
             }
         }
 
         // even if rook moves by itself, set rook not moved to false
-        if move_to_do.from_piece == ROOK
-            && (self.a1_rook_not_moved
-                || self.a8_rook_not_moved
-                || self.h1_rook_not_moved
-                || self.h8_rook_not_moved)
-        {
-            // check if king moved from e1 or h1 or a8 or h8
-            if move_to_do.from == (7, 0) {
-                self.a1_rook_not_moved = false;
-            } else if move_to_do.from == (7, 7) {
-                self.h1_rook_not_moved = false;
-            } else if move_to_do.from == (0, 0) {
-                self.a8_rook_not_moved = false;
-            } else if move_to_do.from == (0, 7) {
-                self.h8_rook_not_moved = false;
+        if move_to_do.from_piece == ROOK {
+            if move_to_do.from_colour == WHITE {
+                self.can_castle_a1 = false;
+                self.can_castle_h1 = false;
+            } else if move_to_do.from_colour == BLACK {
+                self.can_castle_a8 = false;
+                self.can_castle_h8 = false;
             }
         }
 
@@ -286,25 +269,6 @@ impl Board {
             self.set_piece_and_colour(castle_from_to_square.1, ROOK, move_to_do.from_colour);
 
             self.set_piece_and_colour(castle_from_to_square.0, EMPTY, EMPTY);
-        }
-
-        // need to know if castling
-        if move_to_do.from_piece == KING
-            && (self.a1_rook_not_moved
-                || self.a8_rook_not_moved
-                || self.h1_rook_not_moved
-                || self.h8_rook_not_moved)
-        {
-            // check if king moved from e1 or h1 or a8 or h8
-            if move_to_do.from == (7, 4) && move_to_do.to == (7, 2) {
-                self.a1_rook_not_moved = false;
-            } else if move_to_do.from == (7, 4) && move_to_do.to == (7, 6) {
-                self.h1_rook_not_moved = false;
-            } else if move_to_do.from == (0, 4) && move_to_do.to == (0, 2) {
-                self.a8_rook_not_moved = false;
-            } else if move_to_do.from == (0, 4) && move_to_do.to == (0, 7) {
-                self.h8_rook_not_moved = false;
-            }
         }
 
         self.add_hash_of_current_position();
@@ -341,7 +305,7 @@ impl Board {
 
     /// make move does not validate the move, it just does it, overwritting the destination square
     pub fn un_make_move(&mut self, chess_move: &Move) {
-    self.move_list.pop();
+        self.move_list.pop();
         // the move should retain the original pieces in each square.
         self.set_piece_and_colour(chess_move.to, chess_move.to_piece, chess_move.to_colour);
 
@@ -365,6 +329,7 @@ impl Board {
         self.hash_of_previous_positions.pop();
 
         self.ply -= 1;
+        let enemy_colour = self.side_to_move;
         self.side_to_move = if self.side_to_move == WHITE {
             BLACK
         } else {
@@ -380,28 +345,43 @@ impl Board {
             // aply previous ply data to self.
             self.ply = previous_ply_data.ply;
             self.side_to_move = previous_ply_data.side_to_move;
-            self.has_white_king_moved = previous_ply_data.has_white_king_moved;
-            self.has_black_king_moved = previous_ply_data.has_black_king_moved;
-            self.a1_rook_not_moved = previous_ply_data.a1_rook_not_moved;
-            self.a8_rook_not_moved = previous_ply_data.a8_rook_not_moved;
-            self.h1_rook_not_moved = previous_ply_data.h1_rook_not_moved;
-            self.h8_rook_not_moved = previous_ply_data.h8_rook_not_moved;
+            self.can_castle_a1 = previous_ply_data.can_castle_a1;
+            self.can_castle_a8 = previous_ply_data.can_castle_a8;
+            self.can_castle_h1 = previous_ply_data.can_castle_h1;
+            self.can_castle_h8 = previous_ply_data.can_castle_h8;
             self.en_passant_location = previous_ply_data.en_passant_location;
             self.player_colour = previous_ply_data.side_to_move;
         }
         self.ply_record.pop();
+
+        if self.en_passant_location.is_some() {
+            if chess_move.to.1 == self.en_passant_location.unwrap_or((0, 0)).1
+                && chess_move.from_piece == PAWN
+                && chess_move.to_piece == EMPTY
+                && self
+                    .en_passant_location
+                    .unwrap()
+                    .1
+                    .abs_diff(chess_move.from.1)
+                    == 1
+                && self.en_passant_location.unwrap().0 == chess_move.from.0
+            {
+                // the player is doing en passant.
+                // so remove the pawn at the en passant location
+                self.set_piece_and_colour(self.en_passant_location.unwrap(), PAWN, enemy_colour);
+            }
+        }
+        // addd pawn back from en passant
     }
 
     pub fn convert_notation_to_move(&self, mut chess_move: String) -> Result<Move, String> {
         let mut converted_move = Move::default();
 
         // convert "e1g1" "e1c1" "e8g8" "e8c8" into O-O or O-O-O
-        if (!self.has_white_king_moved
-            && ((chess_move == "e1g1" && self.h1_rook_not_moved)
-                || (chess_move == "e1c1" && self.a1_rook_not_moved)))
-            && (!self.has_black_king_moved
-                && ((chess_move == "e8g8" && self.h8_rook_not_moved)
-                    || (chess_move == "e8c8" && self.a8_rook_not_moved)))
+        if ((chess_move == "e1g1" && self.can_castle_h1)
+            || (chess_move == "e1c1" && self.can_castle_a1))
+            || ((chess_move == "e8g8" && self.can_castle_h8)
+                || (chess_move == "e8c8" && self.can_castle_h1))
         {
             chess_move = match chess_move.as_str() {
                 "e1g1" => "O-O".to_string(),
@@ -413,8 +393,8 @@ impl Board {
         }
 
         // castling is a special case
-        if ((self.side_to_move == WHITE && !self.has_white_king_moved)
-            || (self.side_to_move == BLACK && !self.has_black_king_moved))
+        if ((self.side_to_move == WHITE && self.can_castle_a1 && self.can_castle_h1)
+            || (self.side_to_move == BLACK && self.can_castle_a8 && self.can_castle_h8))
             && (chess_move == "O-O" || chess_move == "O-O-O")
         {
             let from_to_squares = match chess_move.as_str() {
@@ -606,28 +586,10 @@ impl Board {
             }
         }
         print_board(self);
-        for move_item in &self.move_list{
+        for move_item in &self.move_list {
             println!("move: {}", move_item.notation_move);
         }
         panic!("King not found!");
-    }
-    pub fn is_side_in_check(&self, side: i8) -> bool {
-        // how to check if side is in check
-
-        // could generate all the moves for current state, for the opposing side
-        // and if any attack the king square, its in check
-        // this could also be used to move the king out of check
-        let opposing_side = if side == WHITE { BLACK } else { WHITE };
-        let king_location = self.get_king_location(side);
-        let mut moves_attacking_king = generate_pseudo_legal_moves(&self.clone(), opposing_side);
-
-        moves_attacking_king.retain(|x| x.to == king_location);
-
-        if moves_attacking_king.len() > 0 {
-            return true;
-        }
-
-        return false;
     }
 }
 pub fn print_board(board: &Board) {
@@ -689,10 +651,10 @@ pub fn print_board(board: &Board) {
         row_string.clear();
     }
     //print all the attributes of the board to the command line
-    println!("has the A1 Rook not moved: {}", board.a1_rook_not_moved);
-    println!("has the H1 Rook not moved: {}", board.h1_rook_not_moved);
-    println!("has the A8 Rook not moved: {}", board.a8_rook_not_moved);
-    println!("has the H8 Rook not moved: {}", board.h8_rook_not_moved);
+    println!("can castle on the A1 Rook: {}", board.can_castle_a1);
+    println!("can castle on the H1 Rook: {}", board.can_castle_h1);
+    println!("can castle on the A8 Rook: {}", board.can_castle_a8);
+    println!("can castle on the H8 Rook: {}", board.can_castle_h8);
 
     println!(
         "en passant plocation {:?}",
@@ -700,9 +662,8 @@ pub fn print_board(board: &Board) {
         board.en_passant_location.unwrap_or((0, 0))
     );
 
-    println!("has the white king moved: {}", board.has_white_king_moved);
-
-    println!("has the black king moved: {}", board.has_black_king_moved);
     println!("game ply: {}", board.ply);
     println!("to move: {}", board.side_to_move);
+    println!("is white in check:{}", evaluate::is_in_check(board, WHITE, None));
+    println!("is black in check:{}", evaluate::is_in_check(board, BLACK, None));
 }

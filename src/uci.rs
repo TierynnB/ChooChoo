@@ -221,6 +221,7 @@ impl CommunicationManager {
         }
     }
     pub fn perft(&mut self, command_text: &str) {
+        print_board(&self.board);
         let depth: i8 = command_text
             .split_ascii_whitespace()
             .nth(1)
@@ -327,8 +328,11 @@ pub fn run() {
             CommandTypes::PrintState => print_board(&manager.board),
             CommandTypes::UciNewGame => {} // do nothing
             CommandTypes::MoveList => {
-                for move_item in &manager.board.move_list{
-                    println!("move {}", move_item.notation_move);
+                for move_item in &manager.board.move_list {
+                    println!(
+                        "move:  {}, from:{:?}, to: {:?}",
+                        move_item.notation_move, move_item.from, move_item.to
+                    );
                 }
             }
             CommandTypes::Invalid => {

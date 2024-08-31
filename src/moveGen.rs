@@ -706,8 +706,8 @@ pub fn generate_king_moves(
 
     // castling
 
-    if !board.has_white_king_moved && side_to_generate_for == WHITE {
-        if board.a1_rook_not_moved
+    if side_to_generate_for == WHITE {
+        if board.can_castle_a1
             && board.is_square_empty("b1")
             && board.is_square_empty("c1")
             && board.is_square_empty("d1")
@@ -734,7 +734,7 @@ pub fn generate_king_moves(
                 sort_score: 0,
             });
         }
-        if board.h1_rook_not_moved && board.is_square_empty("f1") && board.is_square_empty("g1") {
+        if board.can_castle_h1 && board.is_square_empty("f1") && board.is_square_empty("g1") {
             moves.push(Move {
                 from: square,
                 from_piece: KING,
@@ -757,8 +757,8 @@ pub fn generate_king_moves(
         }
     }
 
-    if !board.has_black_king_moved && side_to_generate_for == BLACK {
-        if board.a8_rook_not_moved
+    if side_to_generate_for == BLACK {
+        if board.can_castle_a8
             && board.is_square_empty("b8")
             && board.is_square_empty("c8")
             && board.is_square_empty("d8")
@@ -783,7 +783,7 @@ pub fn generate_king_moves(
                 sort_score: 0,
             });
         }
-        if board.h8_rook_not_moved && board.is_square_empty("f8") && board.is_square_empty("g8") {
+        if board.can_castle_h8 && board.is_square_empty("f8") && board.is_square_empty("g8") {
             moves.push(Move {
                 from: square,
                 from_piece: KING,

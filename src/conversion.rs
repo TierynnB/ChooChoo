@@ -10,10 +10,10 @@ pub fn convert_fen_to_board(fen: &str) -> Board {
 
     board.clear_board();
 
-    board.h8_rook_not_moved = false;
-    board.a8_rook_not_moved = false;
-    board.h1_rook_not_moved = false;
-    board.a1_rook_not_moved = false;
+    board.can_castle_a1 = false;
+    board.can_castle_a8 = false;
+    board.can_castle_h1 = false;
+    board.can_castle_h8 = false;
 
     // board is 12 x 12, but fen is 8x8. Need to convert
     // board starts at 2,2 to 2,10
@@ -66,10 +66,10 @@ pub fn convert_fen_to_board(fen: &str) -> Board {
             2 => {
                 for character in section.chars() {
                     match character {
-                        'k' => board.h8_rook_not_moved = true,
-                        'q' => board.a8_rook_not_moved = true,
-                        'K' => board.h1_rook_not_moved = true,
-                        'Q' => board.a1_rook_not_moved = true,
+                        'k' => board.can_castle_h8 = true,
+                        'q' => board.can_castle_a8 = true,
+                        'K' => board.can_castle_h1 = true,
+                        'Q' => board.can_castle_a1 = true,
                         '-' => {}
                         _ => todo!(),
                     }
