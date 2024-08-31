@@ -6,14 +6,14 @@ use crate::moves::*;
 use std::time::Instant;
 pub struct MoveNode {
     pub move_notation: String,
-    pub nodes: i32,
+    pub nodes: i128,
 }
 pub struct BestMoves {
     pub best_move: Move,
     pub best_score: i32,
 }
 pub struct SearchEngine {
-    pub nodes: i32,
+    pub nodes: i128,
     pub start: Instant,
     pub move_nodes: Vec<MoveNode>,
     pub depth: i8,
@@ -58,18 +58,18 @@ impl SearchEngine {
     ) -> i32 {
         // the move needs to record its own evaluation
         if depth == 0 {
+            self.nodes += 1;
             return evaluate::evaluate(&board);
         };
 
         // generate moves for current depth of board
-        let mut moves_for_current_depth = generate_pseudo_legal_moves(board, board.side_to_move);
+        let mut moves_for_current_depth =
+            generate_pseudo_legal_moves(board, board.side_to_move, false);
         order_moves(&mut moves_for_current_depth);
         if maximizing_player {
             let mut max_eval = -1000;
             for generated_move in moves_for_current_depth.iter() {
                 board.make_move(generated_move);
-
-                self.nodes += 1;
 
                 let eval = self.minimax(board, depth - 1, false, alpha, beta);
 
@@ -81,13 +81,11 @@ impl SearchEngine {
                 }
             }
             return max_eval;
-
         // and best outcome for minimising player (enemy)
         } else {
             let mut min_eval = 1000;
             for generated_move in moves_for_current_depth.iter() {
                 board.make_move(generated_move);
-                self.nodes += 1;
 
                 let eval = self.minimax(board, depth - 1, true, alpha, beta);
 
@@ -112,8 +110,12 @@ impl SearchEngine {
         self.nodes = 0;
         self.start = Instant::now();
         let current_side = board.side_to_move;
+
+        let currently_in_check = evaluate::is_in_check(board, current_side, None);
+
         // generate moves for current depth of board
-        let mut moves_for_current_depth = generate_pseudo_legal_moves(board, board.side_to_move);
+        let mut moves_for_current_depth =
+            generate_pseudo_legal_moves(board, board.side_to_move, currently_in_check);
         order_moves(&mut moves_for_current_depth);
         for generated_move in moves_for_current_depth.iter() {
             board.make_move(generated_move);
@@ -155,56 +157,47 @@ impl SearchEngine {
         return (best_move, best_moves);
     }
 
-    pub fn perft(&mut self, board: &mut Board, depth: i8, first_call: bool, print_all_moves: bool) {
+    pub fn perft(&mut self, board: &mut Board, depth: i8, first_call: bool) -> i128 {
+        let mut nodes_per_root_move: i128 = 0;
+        let mut nodes: i128 = 0;
         if depth == 0 {
-            return;
+            return 1;
         }
         // println!("ply {} side {}", board.ply, board.side_to_move);
         let current_side = board.side_to_move;
-    
-        let moves_for_current_depth = generate_pseudo_legal_moves(board, board.side_to_move);
+
+        let currently_in_check = evaluate::is_in_check(board, current_side, None);
+
+        let moves_for_current_depth =
+            generate_pseudo_legal_moves(board, board.side_to_move, currently_in_check);
 
         for generated_move in moves_for_current_depth.iter() {
             board.make_move(generated_move);
-         
+
             if evaluate::is_in_check(
                 board,
                 current_side,
                 generated_move.castling_intermediary_square,
             ) {
                 board.un_make_move(generated_move);
-            
                 continue;
             }
 
-            if !first_call {
-                self.nodes += 1;
-            } else if depth == 1 {
-                self.nodes += 1;
-            } else {
-                self.nodes = 0;
-            }
-
-            // println!("root move: {}", generated_move.notation_move);
-            self.perft(board, depth - 1, false);
-
+            nodes_per_root_move = self.perft(board, depth - 1, false);
+            nodes += nodes_per_root_move;
             board.un_make_move(generated_move);
 
             if first_call {
                 // update root node here with number
                 self.move_nodes.push(MoveNode {
                     move_notation: generated_move.notation_move.clone(),
-                    nodes: self.nodes,
+                    nodes: nodes_per_root_move,
                 });
-                self.nodes = 0;
+                self.nodes += nodes;
             }
         }
-        if first_call {
-            self.nodes = 0;
-            for move_node in self.move_nodes.iter() {
-                self.nodes += move_node.nodes;
-            }
-        }
+
+        return nodes;
     }
 
     pub fn bench() {

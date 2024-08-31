@@ -229,7 +229,7 @@ impl CommunicationManager {
             .parse()
             .expect("Invalid depth value");
         self.engine = SearchEngine::new();
-        self.engine.perft(&mut self.board, depth, true);
+        let nodes = self.engine.perft(&mut self.board, depth, true);
         // println!("total nodes: {}", self.engine.nodes);
         // println!("root moves: {}", self.engine.move_nodes.len());
         for root in self.engine.move_nodes.iter() {
@@ -237,6 +237,7 @@ impl CommunicationManager {
         }
         println!("total nodes: {}", self.engine.nodes);
         println!("root moves: {}", self.engine.move_nodes.len());
+        println!("perft nodes: {}", nodes);
         println!()
     }
     pub fn enable_uci(&mut self) {

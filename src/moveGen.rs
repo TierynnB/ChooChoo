@@ -667,6 +667,7 @@ pub fn generate_king_moves(
     square: (usize, usize),
     side_to_generate_for: i8,
     board: &Board,
+    is_in_check: bool,
 ) -> Vec<Move> {
     // when castling, take into account that the king is moving through the squares, not teleporting
     // only for those squares castling still possible
@@ -704,8 +705,12 @@ pub fn generate_king_moves(
         }
     }
 
-    // castling
+    // if in check, don't generate castling
+    if is_in_check {
+        return moves;
+    }
 
+    // castling
     if side_to_generate_for == WHITE {
         if board.can_castle_a1
             && board.is_square_empty("b1")
@@ -809,7 +814,11 @@ pub fn generate_king_moves(
     return moves;
 }
 
-pub fn generate_pseudo_legal_moves(board: &Board, side_to_generate_for: i8) -> Vec<Move> {
+pub fn generate_pseudo_legal_moves(
+    board: &Board,
+    side_to_generate_for: i8,
+    is_in_check: bool,
+) -> Vec<Move> {
     let mut moves: Vec<Move> = vec![];
     // println!("square: {}", 1);
     // println!("side_to_generate_for: {}", side_to_generate_for);
@@ -828,7 +837,7 @@ pub fn generate_pseudo_legal_moves(board: &Board, side_to_generate_for: i8) -> V
                 3 => generate_bishop_moves(location, side_to_generate_for, board),
                 4 => generate_rook_moves(location, side_to_generate_for, board),
                 5 => generate_queen_moves(location, side_to_generate_for, board),
-                6 => generate_king_moves(location, side_to_generate_for, board),
+                6 => generate_king_moves(location, side_to_generate_for, board, is_in_check),
                 _ => vec![],
             };
 

@@ -252,11 +252,34 @@ impl Board {
         // even if rook moves by itself, set rook not moved to false
         if move_to_do.from_piece == ROOK {
             if move_to_do.from_colour == WHITE {
-                self.can_castle_a1 = false;
-                self.can_castle_h1 = false;
+                if move_to_do.from == (7, 0) {
+                    self.can_castle_a1 = false;
+                } else if move_to_do.from == (7, 7) {
+                    self.can_castle_h1 = false;
+                }
             } else if move_to_do.from_colour == BLACK {
-                self.can_castle_a8 = false;
-                self.can_castle_h8 = false;
+                if move_to_do.from == (0, 0) {
+                    self.can_castle_a8 = false;
+                } else if move_to_do.from == (0, 7) {
+                    self.can_castle_h8 = false;
+                }
+            }
+        }
+
+        // if rook is captured by another piece, cant castle anymore
+        if move_to_do.to_piece == ROOK {
+            if move_to_do.to_colour == WHITE {
+                if move_to_do.to == (7, 0) {
+                    self.can_castle_a1 = false;
+                } else if move_to_do.to == (7, 7) {
+                    self.can_castle_h1 = false;
+                }
+            } else if move_to_do.to_colour == BLACK {
+                if move_to_do.to == (0, 0) {
+                    self.can_castle_a8 = false;
+                } else if move_to_do.to == (0, 7) {
+                    self.can_castle_h8 = false;
+                }
             }
         }
 
@@ -664,6 +687,12 @@ pub fn print_board(board: &Board) {
 
     println!("game ply: {}", board.ply);
     println!("to move: {}", board.side_to_move);
-    println!("is white in check:{}", evaluate::is_in_check(board, WHITE, None));
-    println!("is black in check:{}", evaluate::is_in_check(board, BLACK, None));
+    println!(
+        "is white in check:{}",
+        evaluate::is_in_check(board, WHITE, None)
+    );
+    println!(
+        "is black in check:{}",
+        evaluate::is_in_check(board, BLACK, None)
+    );
 }
