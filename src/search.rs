@@ -3,6 +3,7 @@ use crate::constants::*;
 use crate::evaluate;
 use crate::movegen::*;
 use crate::moves::*;
+use core::time;
 use std::time::Instant;
 pub struct MoveNode {
     pub move_notation: String,
@@ -17,16 +18,19 @@ pub struct SearchEngine {
     pub start: Instant,
     pub move_nodes: Vec<MoveNode>,
     pub depth: i8,
-    pub wtime: i32,
-    pub btime: i32,
-    pub winc: i32,
-    pub binc: i32,
+    pub wtime: u128,
+    pub btime: u128,
+    pub winc: u128,
+    pub binc: u128,
+    pub use_time_management: bool,
+    pub searching_side: i8,
 }
 
 pub fn order_moves(moves: &mut Vec<Move>) {
     for i in 0..moves.len() {
         let move_to_score = moves.get_mut(i).unwrap();
         let value = MVV_LVA[move_to_score.to_piece as usize][move_to_score.from_piece as usize];
+        // println!("{} {}", move_to_score.notation_move, value);
         move_to_score.sort_score += value as i32;
     }
 
@@ -40,14 +44,30 @@ impl SearchEngine {
             nodes: 0,
             start: Instant::now(),
             move_nodes: Vec::new(),
-            depth: 0,
+            depth: 3,
             winc: 0,
             wtime: 0,
             binc: 0,
             btime: 0,
+            use_time_management: false,
+            searching_side: WHITE,
         }
     }
+    pub fn get_allowed_time(&self, side: i8) -> u128 {
+        if self.use_time_management {
+            let time_left = if side == WHITE {
+                self.wtime
+            } else {
+                self.btime
+            };
 
+            let increment = if side == WHITE { self.winc } else { self.binc };
+
+            return time_left / 30 + increment;
+        } else {
+            return 10000;
+        }
+    }
     pub fn minimax(
         &mut self,
         board: &mut Board,
@@ -59,9 +79,14 @@ impl SearchEngine {
         // the move needs to record its own evaluation
         if depth == 0 {
             self.nodes += 1;
-            return evaluate::evaluate(&board);
+            return evaluate::evaluate(&board, self.searching_side);
         };
 
+        if self.use_time_management {
+            if self.start.elapsed().as_millis() > self.get_allowed_time(self.searching_side) {
+                return evaluate::evaluate(&board, self.searching_side);
+            }
+        }
         // generate moves for current depth of board
         let mut moves_for_current_depth =
             generate_pseudo_legal_moves(board, board.side_to_move, false);
@@ -100,15 +125,23 @@ impl SearchEngine {
         }
     }
 
-    pub fn search(&mut self, board: &mut Board, depth: i8) -> (Move, Vec<BestMoves>) {
+    pub fn search(&mut self, board: &mut Board) -> (Move, Vec<BestMoves>) {
         // adding in iterative deepening?
-
+        let mut searching = true;
         let mut best_move = Move::default();
         let mut best_score = -1000;
         let mut best_moves = Vec::new();
+        let mut local_depth = 1;
+        let mut time_limit_reached = false;
 
+        self.searching_side = board.side_to_move;
         self.nodes = 0;
         self.start = Instant::now();
+
+        // itereative deepening
+        // starts at depth 1, then after each depth search,
+        // check elapsed time, sort moves, and search again at depth += 1
+
         let current_side = board.side_to_move;
 
         let currently_in_check = evaluate::is_in_check(board, current_side, None);
@@ -117,42 +150,71 @@ impl SearchEngine {
         let mut moves_for_current_depth =
             generate_pseudo_legal_moves(board, board.side_to_move, currently_in_check);
         order_moves(&mut moves_for_current_depth);
-        for generated_move in moves_for_current_depth.iter() {
-            board.make_move(generated_move);
 
-            // check not moving self into check
-            if evaluate::is_in_check(
-                board,
-                current_side,
-                generated_move.castling_intermediary_square,
-            ) {
+        while searching {
+            for generated_move in moves_for_current_depth.iter_mut() {
+                board.make_move(generated_move);
+
+                // check not moving self into check
+                if evaluate::is_in_check(
+                    board,
+                    current_side,
+                    generated_move.castling_intermediary_square,
+                ) {
+                    generated_move.illegal_move = true;
+                    board.un_make_move(generated_move);
+                    continue;
+                }
+
+                generated_move.search_score =
+                    self.minimax(board, local_depth, true, i32::MIN, i32::MAX);
+
                 board.un_make_move(generated_move);
-                continue;
+
+                // println!(
+                //     "depth: {}, generated move: {}, search score: {}, sort score: {}",
+                //     local_depth,
+                //     generated_move.notation_move,
+                //     generated_move.search_score,
+                //     generated_move.sort_score
+                // );
             }
 
-            let score = self.minimax(board, depth, true, i32::MIN, i32::MAX);
+            moves_for_current_depth.retain(|m| !m.illegal_move);
 
-            // store the score against each move?
-            if score > best_score {
-                best_score = score;
-                best_move = generated_move.clone();
-                best_moves.push(BestMoves {
-                    best_move: generated_move.clone(),
-                    best_score,
-                });
+            if self.use_time_management {
+                if self.start.elapsed().as_millis() > self.get_allowed_time(self.searching_side) {
+                    println!("time limit reached");
+                    searching = false;
+                }
             }
 
-            board.un_make_move(generated_move);
-        }
-        // add secondary sort by 'sortscore'.
-        best_moves.sort_by(|a, b| {
-            let score_cmp = b.best_score.cmp(&a.best_score);
-            if score_cmp == std::cmp::Ordering::Equal {
-                b.best_move.sort_score.cmp(&a.best_move.sort_score)
+            if local_depth < self.depth || (!time_limit_reached && self.use_time_management) {
+                local_depth += 1;
             } else {
-                score_cmp
+                searching = false;
             }
-        });
+
+            moves_for_current_depth.sort_by(|a, b| {
+                let score_cmp = b.search_score.cmp(&a.search_score);
+                if score_cmp == std::cmp::Ordering::Equal {
+                    b.sort_score.cmp(&a.sort_score)
+                } else {
+                    score_cmp
+                }
+            });
+        }
+
+        for generated_move in moves_for_current_depth.iter() {
+            if generated_move.search_score > best_score {
+                best_score = generated_move.search_score;
+                best_move = generated_move.clone();
+            }
+            best_moves.push(BestMoves {
+                best_move: generated_move.clone(),
+                best_score: generated_move.search_score,
+            });
+        }
 
         return (best_move, best_moves);
     }

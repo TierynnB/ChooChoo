@@ -138,6 +138,8 @@ pub fn generate_pawn_moves(
                 castle_from_to_square: None,
                 castling_intermediary_square: None,
                 sort_score: 0,
+                search_score: 0,
+                illegal_move: false,
             });
         }
     } else if !blocked {
@@ -159,6 +161,8 @@ pub fn generate_pawn_moves(
             castle_from_to_square: None,
             castling_intermediary_square: None,
             sort_score: 0,
+            search_score: 0,
+            illegal_move: false,
         });
     }
 
@@ -200,6 +204,8 @@ pub fn generate_pawn_moves(
                     castle_from_to_square: None,
                     castling_intermediary_square: None,
                     sort_score: 0,
+                    search_score: 0,
+                    illegal_move: false,
                 });
             }
         } else {
@@ -217,6 +223,8 @@ pub fn generate_pawn_moves(
                 castle_from_to_square: None,
                 castling_intermediary_square: None,
                 sort_score: 0,
+                search_score: 0,
+                illegal_move: false,
             });
         }
     }
@@ -249,6 +257,8 @@ pub fn generate_pawn_moves(
                 castle_from_to_square: None,
                 castling_intermediary_square: None,
                 sort_score: 0,
+                search_score: 0,
+                illegal_move: false,
             });
         }
     }
@@ -278,6 +288,8 @@ pub fn generate_pawn_moves(
                 castling_intermediary_square: None,
                 castle_from_to_square: None,
                 sort_score: 0,
+                search_score: 0,
+                illegal_move: false,
             });
         }
     }
@@ -361,6 +373,8 @@ pub fn generate_knight_moves(
             castle_from_to_square: None,
             castling_intermediary_square: None,
             sort_score: 0,
+            search_score: 0,
+            illegal_move: false,
         });
     }
     return moves;
@@ -438,6 +452,8 @@ pub fn generate_bishop_moves(
             castle_from_to_square: None,
             castling_intermediary_square: None,
             sort_score: 0,
+            search_score: 0,
+            illegal_move: false,
         });
     }
 
@@ -516,6 +532,8 @@ pub fn generate_rook_moves(
             castle_from_to_square: None,
             castling_intermediary_square: None,
             sort_score: 0,
+            search_score: 0,
+            illegal_move: false,
         });
     }
 
@@ -604,6 +622,8 @@ pub fn generate_queen_moves(
             castle_from_to_square: None,
             castling_intermediary_square: None,
             sort_score: 0,
+            search_score: 0,
+            illegal_move: false,
         });
     }
 
@@ -697,6 +717,8 @@ pub fn generate_king_moves(
             castle_from_to_square: None,
             castling_intermediary_square: None,
             sort_score: 0,
+            search_score: 0,
+            illegal_move: false,
         });
 
         // if captured a piece, stop multiplying and look in new direction
@@ -737,6 +759,8 @@ pub fn generate_king_moves(
                 castle_from_to_square: Some(((7, 0), (7, 3))),
                 castling_intermediary_square: Some((7, 3)), //d1
                 sort_score: 0,
+                search_score: 0,
+                illegal_move: false,
             });
         }
         if board.can_castle_h1 && board.is_square_empty("f1") && board.is_square_empty("g1") {
@@ -758,6 +782,8 @@ pub fn generate_king_moves(
                 castle_from_to_square: Some(((7, 7), (7, 5))),
                 castling_intermediary_square: Some((7, 5)), //f1
                 sort_score: 0,
+                search_score: 0,
+                illegal_move: false,
             });
         }
     }
@@ -786,6 +812,8 @@ pub fn generate_king_moves(
                 castle_from_to_square: Some(((0, 0), (0, 3))),
                 castling_intermediary_square: Some((0, 3)), //d8
                 sort_score: 0,
+                search_score: 0,
+                illegal_move: false,
             });
         }
         if board.can_castle_h8 && board.is_square_empty("f8") && board.is_square_empty("g8") {
@@ -807,6 +835,8 @@ pub fn generate_king_moves(
                 castle_from_to_square: Some(((0, 7), (0, 5))),
                 castling_intermediary_square: Some((0, 5)), //f8
                 sort_score: 0,
+                search_score: 0,
+                illegal_move: false,
             });
         }
     }
@@ -820,8 +850,7 @@ pub fn generate_pseudo_legal_moves(
     is_in_check: bool,
 ) -> Vec<Move> {
     let mut moves: Vec<Move> = vec![];
-    // println!("square: {}", 1);
-    // println!("side_to_generate_for: {}", side_to_generate_for);
+
     // go through each piece on the board, by colour to only get moves for side to move.
     for (row_index, row) in board.colour_array.iter().enumerate() {
         for (column_index, colour) in row.iter().enumerate() {

@@ -12,6 +12,8 @@ pub struct Move {
     pub castle_from_to_square: Option<((usize, usize), (usize, usize))>,
     pub castling_intermediary_square: Option<(usize, usize)>,
     pub sort_score: i32,
+    pub search_score: i32,
+    pub illegal_move: bool,
 }
 impl Default for Move {
     fn default() -> Self {
@@ -30,6 +32,8 @@ impl Default for Move {
             castle_from_to_square: None,
             castling_intermediary_square: None,
             sort_score: 0,
+            search_score: 0,
+            illegal_move: false,
         };
     }
 }

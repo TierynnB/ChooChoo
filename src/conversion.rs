@@ -139,28 +139,22 @@ pub fn convert_fen_to_board(fen: &str) -> Board {
 pub fn get_piece_square_value(location: (usize, usize), piece_type: i8, colour: i8) -> i32 {
     if colour == constants::WHITE {
         return match piece_type {
-            constants::PAWN => constants::MG_PAWN_TABLE[location.0 - 2][location.1 - 2],
-            constants::KNIGHT => constants::MG_KNIGHT_TABLE[location.0 - 2][location.1 - 2],
-            constants::BISHOP => constants::MG_BISHOP_TABLE[location.0 - 2][location.1 - 2],
-            constants::ROOK => constants::MG_ROOK_TABLE[location.0 - 2][location.1 - 2],
-            constants::QUEEN => constants::MG_QUEEN_TABLE[location.0 - 2][location.1 - 2],
-            constants::KING => constants::MG_KING_TABLE[location.0 - 2][location.1 - 2],
+            constants::PAWN => constants::MG_PAWN_TABLE[location.0][location.1],
+            constants::KNIGHT => constants::MG_KNIGHT_TABLE[location.0][location.1],
+            constants::BISHOP => constants::MG_BISHOP_TABLE[location.0][location.1],
+            constants::ROOK => constants::MG_ROOK_TABLE[location.0][location.1],
+            constants::QUEEN => constants::MG_QUEEN_TABLE[location.0][location.1],
+            constants::KING => constants::MG_KING_TABLE[location.0][location.1],
             _ => 0,
         };
     } else {
         return match piece_type {
-            constants::PAWN => constants::MG_PAWN_TABLE[7 - (location.0 - 2)][7 - (location.1 - 2)],
-            constants::KNIGHT => {
-                constants::MG_KNIGHT_TABLE[7 - (location.0 - 2)][7 - (location.1 - 2)]
-            }
-            constants::BISHOP => {
-                constants::MG_BISHOP_TABLE[7 - (location.0 - 2)][7 - (location.1 - 2)]
-            }
-            constants::ROOK => constants::MG_ROOK_TABLE[7 - (location.0 - 2)][7 - (location.1 - 2)],
-            constants::QUEEN => {
-                constants::MG_QUEEN_TABLE[7 - (location.0 - 2)][7 - (location.1 - 2)]
-            }
-            constants::KING => constants::MG_KING_TABLE[7 - (location.0 - 2)][7 - (location.1 - 2)],
+            constants::PAWN => constants::MG_PAWN_TABLE[7 - (location.0)][7 - (location.1)],
+            constants::KNIGHT => constants::MG_KNIGHT_TABLE[7 - (location.0)][7 - (location.1)],
+            constants::BISHOP => constants::MG_BISHOP_TABLE[7 - (location.0)][7 - (location.1)],
+            constants::ROOK => constants::MG_ROOK_TABLE[7 - (location.0)][7 - (location.1)],
+            constants::QUEEN => constants::MG_QUEEN_TABLE[7 - (location.0)][7 - (location.1)],
+            constants::KING => constants::MG_KING_TABLE[7 - (location.0)][7 - (location.1)],
             _ => 0,
         };
     }

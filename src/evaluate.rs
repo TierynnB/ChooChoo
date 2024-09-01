@@ -1,7 +1,7 @@
 use crate::board::Board;
-use crate::{constants::*, movegen::*};
+use crate::{constants::*, conversion, movegen::*};
 
-pub fn evaluate(board: &Board) -> i32 {
+pub fn evaluate(board: &Board, searching_side: i8) -> i32 {
     let mut score: i32 = 0;
     // go through each piece on the board, by colour to only get moves for side to move.
     for (row_index, row) in board.colour_array.iter().enumerate() {
@@ -13,17 +13,19 @@ pub fn evaluate(board: &Board) -> i32 {
                 continue;
             }
 
-            // let mut score_for_piece_type = get_piece_square_value(location, square, *colour);
-            let mut score_for_piece_type = match square {
+            let mut score_for_piece_type =
+                conversion::get_piece_square_value((row_index, column_index), square, *colour);
+            score_for_piece_type += match square {
                 PAWN => 82,
                 KNIGHT => 337,
                 BISHOP => 365,
                 ROOK => 525,
                 QUEEN => 1025,
+                KING => 10000,
                 _ => 0,
             };
             // if for other side, make negative.
-            if colour != &board.side_to_move {
+            if colour != &searching_side {
                 score_for_piece_type *= -1;
             }
 
@@ -92,7 +94,11 @@ pub fn is_attacked_by_piece_from_square(
 
     match piece_type {
         PAWN => {
-            if difference_in_column > 1 || difference_in_row > 1 {
+            if difference_in_column > 1
+                || difference_in_row > 1
+                || (difference_in_column == 0 && difference_in_row == 1)
+                || (difference_in_column == 1 && difference_in_row == 0)
+            {
                 return false;
             };
             for attack in get_pawn_attacks(square_from, side_to_generate_for, board) {
@@ -102,7 +108,11 @@ pub fn is_attacked_by_piece_from_square(
             }
         }
         KNIGHT => {
-            if difference_in_row > 3 || difference_in_column > 3 {
+            if difference_in_row > 2
+                || difference_in_column > 2
+                || difference_in_row < 2
+                || difference_in_column < 2
+            {
                 return false;
             };
             // println!("generating knight attacks");
@@ -119,7 +129,7 @@ pub fn is_attacked_by_piece_from_square(
                 return false;
             }
 
-            if difference_in_row % difference_in_column != 0 {
+            if difference_in_row != difference_in_column {
                 return false;
             }
 
@@ -141,7 +151,7 @@ pub fn is_attacked_by_piece_from_square(
         }
         QUEEN => {
             if (difference_in_row != 0 && difference_in_column != 0)
-                && (difference_in_row % difference_in_column != 0)
+                && (difference_in_row != difference_in_column)
             {
                 return false;
             }

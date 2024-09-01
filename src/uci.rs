@@ -130,7 +130,7 @@ impl CommunicationManager {
     pub fn evaluate(&self) {
         println!(
             "{}",
-            evaluate(&self.board) // self.board.get_running_evaluation()
+            evaluate(&self.board, self.board.side_to_move) // self.board.get_running_evaluation()
         );
     }
     pub fn bench(&mut self) {
@@ -142,7 +142,7 @@ impl CommunicationManager {
             println!("bench fen: {}", bench_fen);
             self.board = convert_fen_to_board(bench_fen);
 
-            self.engine.search(&mut self.board, 3);
+            self.engine.search(&mut self.board);
 
             nodes += self.engine.nodes;
             time_taken_micros += self.engine.start.elapsed().as_micros();
@@ -165,7 +165,7 @@ impl CommunicationManager {
             Some(arg_2) => {
                 self.engine = SearchEngine::new();
                 let depth: i8 = arg_2.parse::<i8>().expect("Invalid depth value");
-                let outcome = self.engine.search(&mut self.board, depth);
+                let outcome = self.engine.search(&mut self.board);
                 println!(
                     "nodes: {}, time:{:?}, nodes per second: {}",
                     self.engine.nodes,
@@ -261,27 +261,40 @@ impl CommunicationManager {
 
             match token {
                 "wtime" => {
-                    self.engine.wtime = command_text_split.next().unwrap().parse::<i32>().unwrap()
+                    self.engine.wtime = command_text_split.next().unwrap().parse::<u128>().unwrap();
+                    self.engine.use_time_management = true;
                 }
                 "btime" => {
-                    self.engine.btime = command_text_split.next().unwrap().parse::<i32>().unwrap()
+                    self.engine.btime = command_text_split.next().unwrap().parse::<u128>().unwrap();
+                    self.engine.use_time_management = true;
                 }
                 "winc" => {
-                    self.engine.winc = command_text_split.next().unwrap().parse::<i32>().unwrap()
+                    self.engine.winc = command_text_split.next().unwrap().parse::<u128>().unwrap();
+                    self.engine.use_time_management = true;
                 }
                 "binc" => {
-                    self.engine.wtime = command_text_split.next().unwrap().parse::<i32>().unwrap()
+                    self.engine.wtime = command_text_split.next().unwrap().parse::<u128>().unwrap();
+                    self.engine.use_time_management = true;
                 }
                 "movestogo" => {
-                    self.engine.depth = command_text_split.next().unwrap().parse::<i8>().unwrap()
+                    self.engine.depth = command_text_split.next().unwrap().parse::<i8>().unwrap();
                 }
                 "depth" => {
-                    self.engine.depth = command_text_split.next().unwrap().parse::<i8>().unwrap()
+                    self.engine.depth = command_text_split.next().unwrap().parse::<i8>().unwrap();
                 }
                 _ => {}
             }
         }
-        let moves = self.engine.search(&mut self.board, 5);
+        let moves = self.engine.search(&mut self.board);
+        let time_taken_micros = self.engine.start.elapsed().as_micros();
+        let time_taken_seconds = self.engine.start.elapsed().as_secs_f32();
+
+        println!(
+            "nodes: {}, time:{:?}, nodes per second: {}",
+            self.engine.nodes,
+            time_taken_micros,
+            self.engine.nodes as f32 / time_taken_seconds
+        );
         // for bestmoves in &moves {
         //     println!(
         //         "move: {}, score: {}",

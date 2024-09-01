@@ -68,12 +68,10 @@ impl Board {
             colour_array,
             white_attacks,
             black_attacks,
-
             can_castle_a1: true,
             can_castle_a8: true,
             can_castle_h1: true,
             can_castle_h8: true,
-
             // en_passant: false,
             en_passant_location: None,
             ply: 0,
@@ -452,6 +450,8 @@ impl Board {
                 castle_from_to_square: Some((from_to_squares.2, from_to_squares.3)),
                 castling_intermediary_square: None,
                 sort_score: 0,
+                search_score: 0,
+                illegal_move: false,
             });
         }
 
