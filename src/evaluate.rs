@@ -113,17 +113,12 @@ pub fn is_attacked_by_piece_from_square(
                 || difference_in_column > 2
                 || (difference_in_row < 2 && difference_in_column < 2)
             {
-                println!("knight from :{:?}", square_from);
-                println!("attacking from :{:?}", square_to);
-                println!("difference in row {}", difference_in_row);
-                println!("difference in column {}", difference_in_column);
                 return false;
             };
-            // println!("generating knight attacks");
             for attack in get_knight_attacks(square_from, side_to_generate_for, board) {
-                // println!("attack: {:?}", attack);
+    
                 if attack == square_to {
-                    // println!("attack found: {:?}", attack);
+                   
                     return true;
                 }
             }
