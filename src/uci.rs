@@ -282,8 +282,8 @@ impl CommunicationManager {
         println!(
             "bestmove {}",
             conversion::convert_array_location_to_notation(
-                moves.0.to,
                 moves.0.from,
+                moves.0.to,
                 Some(match moves.0.promotion_to.unwrap_or(0) {
                     1 => 'p'.to_string(),
                     2 => 'n'.to_string(),
