@@ -202,7 +202,7 @@ mod tests {
         );
 
         let eval = evaluate::evaluate(&board, 1);
-        assert!(eval < 100 && eval > -100, "Not around 0 eval");
+        assert!(eval == 0, "Not around 0 eval");
     }
     #[test]
     fn evaluate_even_2() {
@@ -211,7 +211,7 @@ mod tests {
         );
 
         let eval = evaluate::evaluate(&board, 1);
-        assert!(eval < 100 && eval > -100, "Not around 0 eval");
+        assert!(eval == 0, "Not around 0 eval");
     }
     #[test]
     fn evaluate_even_3() {
@@ -220,7 +220,7 @@ mod tests {
         );
 
         let eval = evaluate::evaluate(&board, 1);
-        assert!(eval < 100 && eval > -100, "Not around 0 eval");
+        assert!(eval == 0, "Not around 0 eval");
     }
     #[test]
     fn evaluate_white_1() {
