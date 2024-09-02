@@ -2,6 +2,7 @@ use crate::board::Board;
 use crate::constants::*;
 use crate::evaluate;
 use crate::movegen::*;
+use crate::conversion;
 use crate::moves::*;
 use core::time;
 use std::time::Instant;
@@ -132,7 +133,6 @@ impl SearchEngine {
         let mut best_score = -1000;
         let mut best_moves = Vec::new();
         let mut local_depth = 1;
-        let mut time_limit_reached = false;
 
         self.searching_side = board.side_to_move;
         self.nodes = 0;
@@ -155,6 +155,12 @@ impl SearchEngine {
             for generated_move in moves_for_current_depth.iter_mut() {
                 board.make_move(generated_move);
 
+                if board.has_positions_repeated(){
+                    generated_move.illegal_move = true;
+                    board.un_make_move(generated_move);
+                    continue;
+                }
+
                 // check not moving self into check
                 if evaluate::is_in_check(
                     board,
@@ -171,13 +177,6 @@ impl SearchEngine {
 
                 board.un_make_move(generated_move);
 
-                // println!(
-                //     "depth: {}, generated move: {}, search score: {}, sort score: {}",
-                //     local_depth,
-                //     generated_move.notation_move,
-                //     generated_move.search_score,
-                //     generated_move.sort_score
-                // );
             }
 
             moves_for_current_depth.retain(|m| !m.illegal_move);
@@ -189,7 +188,7 @@ impl SearchEngine {
                 }
             }
 
-            if local_depth < self.depth || (!time_limit_reached && self.use_time_management) {
+            if local_depth < self.depth || (!(self.start.elapsed().as_millis() > self.get_allowed_time(self.searching_side)) && self.use_time_management) {
                 local_depth += 1;
             } else {
                 searching = false;
@@ -252,7 +251,11 @@ impl SearchEngine {
             if first_call {
                 // update root node here with number
                 self.move_nodes.push(MoveNode {
-                    move_notation: generated_move.notation_move.clone(),
+
+                     //        
+
+                    move_notation: conversion::convert_move_to_notation(generated_move)
+                               ,
                     nodes: nodes_per_root_move,
                 });
                 self.nodes += nodes;

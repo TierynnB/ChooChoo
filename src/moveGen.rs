@@ -117,23 +117,7 @@ pub fn generate_pawn_moves(
                 to_piece: square_in_front,
                 from_colour: side_to_generate_for,
                 to_colour: EMPTY,
-                notation_move: convert_array_location_to_notation(
-                    square,
-                    (index_of_square_in_front, column),
-                    Some(match piece {
-                        1 => 'p'.to_string(),
-                        2 => 'n'.to_string(),
-                        3 => 'b'.to_string(),
-                        4 => 'r'.to_string(),
-                        5 => 'q'.to_string(),
-                        6 => 'k'.to_string(),
-                        0 => ' '.to_string(),
-                        -1 => ' '.to_string(),
-                        _ => ' '.to_string(),
-                    }),
-                ),
                 en_passant: false,
-
                 promotion_to: Some(piece),
                 castle_from_to_square: None,
                 castling_intermediary_square: None,
@@ -150,11 +134,11 @@ pub fn generate_pawn_moves(
             to_piece: square_in_front,
             from_colour: side_to_generate_for,
             to_colour: EMPTY,
-            notation_move: convert_array_location_to_notation(
-                square,
-                (index_of_square_in_front, column),
-                None,
-            ),
+            // notation_move: convert_array_location_to_notation(
+            //     square,
+            //     (index_of_square_in_front, column),
+            //     None,
+            // ),
             en_passant: false,
 
             promotion_to: None,
@@ -183,21 +167,21 @@ pub fn generate_pawn_moves(
                     to_piece: to_piece_type,
                     from_colour: side_to_generate_for,
                     to_colour: to_square_colour,
-                    notation_move: convert_array_location_to_notation(
-                        square,
-                        attack_square,
-                        Some(match piece {
-                            1 => 'p'.to_string(),
-                            2 => 'n'.to_string(),
-                            3 => 'b'.to_string(),
-                            4 => 'r'.to_string(),
-                            5 => 'q'.to_string(),
-                            6 => 'k'.to_string(),
-                            0 => ' '.to_string(),
-                            -1 => ' '.to_string(),
-                            _ => ' '.to_string(),
-                        }),
-                    ),
+                    // notation_move: convert_array_location_to_notation(
+                    //     square,
+                    //     attack_square,
+                    //     Some(match piece {
+                    //         1 => 'p'.to_string(),
+                    //         2 => 'n'.to_string(),
+                    //         3 => 'b'.to_string(),
+                    //         4 => 'r'.to_string(),
+                    //         5 => 'q'.to_string(),
+                    //         6 => 'k'.to_string(),
+                    //         0 => ' '.to_string(),
+                    //         -1 => ' '.to_string(),
+                    //         _ => ' '.to_string(),
+                    //     }),
+                    // ),
                     en_passant: false,
 
                     promotion_to: Some(piece),
@@ -216,7 +200,7 @@ pub fn generate_pawn_moves(
                 to_piece: to_piece_type,
                 from_colour: side_to_generate_for,
                 to_colour: to_square_colour,
-                notation_move: convert_array_location_to_notation(square, attack_square, None),
+                // notation_move: convert_array_location_to_notation(square, attack_square, None),
                 en_passant: false,
 
                 promotion_to: None,
@@ -246,11 +230,11 @@ pub fn generate_pawn_moves(
                 to_piece: square_in_front,
                 from_colour: side_to_generate_for,
                 to_colour: EMPTY,
-                notation_move: convert_array_location_to_notation(
-                    square,
-                    (index_of_square_in_front, column),
-                    None,
-                ),
+                // notation_move: convert_array_location_to_notation(
+                //     square,
+                //     (index_of_square_in_front, column),
+                //     None,
+                // ),
 
                 promotion_to: None,
                 en_passant: true,
@@ -277,11 +261,11 @@ pub fn generate_pawn_moves(
                 to_piece: EMPTY,
                 from_colour: side_to_generate_for,
                 to_colour: EMPTY,
-                notation_move: convert_array_location_to_notation(
-                    square,
-                    (index_of_square_in_front as usize, move_info.1),
-                    None,
-                ),
+                // notation_move: convert_array_location_to_notation(
+                //     square,
+                //     (index_of_square_in_front as usize, move_info.1),
+                //     None,
+                // ),
 
                 promotion_to: None,
                 en_passant: false,
@@ -362,11 +346,11 @@ pub fn generate_knight_moves(
             to_piece: to_piece_type,
             from_colour: side_to_generate_for,
             to_colour: to_square_colour,
-            notation_move: convert_array_location_to_notation(
-                square,
-                (attack_square.0, attack_square.1),
-                None,
-            ),
+            // notation_move: convert_array_location_to_notation(
+            //     square,
+            //     (attack_square.0, attack_square.1),
+            //     None,
+            // ),
             en_passant: false,
 
             promotion_to: None,
@@ -441,11 +425,11 @@ pub fn generate_bishop_moves(
             to_piece: to_piece_type,
             from_colour: side_to_generate_for,
             to_colour: to_square_colour,
-            notation_move: convert_array_location_to_notation(
-                square,
-                (attack_square.0, attack_square.1),
-                None,
-            ),
+            // notation_move: convert_array_location_to_notation(
+            //     square,
+            //     (attack_square.0, attack_square.1),
+            //     None,
+            // ),
             en_passant: false,
 
             promotion_to: None,
@@ -521,11 +505,11 @@ pub fn generate_rook_moves(
             to_piece: to_piece_type,
             from_colour: side_to_generate_for,
             to_colour: to_square_colour,
-            notation_move: convert_array_location_to_notation(
-                square,
-                (attack_square.0, attack_square.1),
-                None,
-            ),
+            // notation_move: convert_array_location_to_notation(
+            //     square,
+            //     (attack_square.0, attack_square.1),
+            //     None,
+            // ),
             en_passant: false,
 
             promotion_to: None,
@@ -611,11 +595,11 @@ pub fn generate_queen_moves(
             to_piece: to_piece_type,
             from_colour: side_to_generate_for,
             to_colour: to_square_colour,
-            notation_move: convert_array_location_to_notation(
-                square,
-                (attack_square.0, attack_square.1),
-                None,
-            ),
+            // notation_move: convert_array_location_to_notation(
+            //     square,
+            //     (attack_square.0, attack_square.1),
+            //     None,
+            // ),
             en_passant: false,
 
             promotion_to: None,
@@ -706,11 +690,11 @@ pub fn generate_king_moves(
             to_piece: to_piece_type,
             from_colour: side_to_generate_for,
             to_colour: to_square_colour,
-            notation_move: convert_array_location_to_notation(
-                square,
-                (attack_square.0, attack_square.1),
-                None,
-            ),
+            // notation_move: convert_array_location_to_notation(
+            //     square,
+            //     (attack_square.0, attack_square.1),
+            //     None,
+            // ),
             en_passant: false,
 
             promotion_to: None,
@@ -748,11 +732,11 @@ pub fn generate_king_moves(
                 to_piece: EMPTY,
                 from_colour: side_to_generate_for,
                 to_colour: EMPTY,
-                notation_move: convert_array_location_to_notation(
-                    square,
-                    (row, (column as isize - 2) as usize),
-                    None,
-                ),
+                // notation_move: convert_array_location_to_notation(
+                //     square,
+                //     (row, (column as isize - 2) as usize),
+                //     None,
+                // ),
                 en_passant: false,
 
                 promotion_to: None,
@@ -771,11 +755,11 @@ pub fn generate_king_moves(
                 to_piece: EMPTY,
                 from_colour: side_to_generate_for,
                 to_colour: EMPTY,
-                notation_move: convert_array_location_to_notation(
-                    square,
-                    (row, (column as isize + 2) as usize),
-                    None,
-                ),
+                // notation_move: convert_array_location_to_notation(
+                //     square,
+                //     (row, (column as isize + 2) as usize),
+                //     None,
+                // ),
                 en_passant: false,
 
                 promotion_to: None,
@@ -801,11 +785,11 @@ pub fn generate_king_moves(
                 to_piece: EMPTY,
                 from_colour: side_to_generate_for,
                 to_colour: EMPTY,
-                notation_move: convert_array_location_to_notation(
-                    square,
-                    (row, (column as isize - 2) as usize),
-                    None,
-                ),
+                // notation_move: convert_array_location_to_notation(
+                //     square,
+                //     (row, (column as isize - 2) as usize),
+                //     None,
+                // ),
                 en_passant: false,
 
                 promotion_to: None,
@@ -824,11 +808,11 @@ pub fn generate_king_moves(
                 to_piece: EMPTY,
                 from_colour: side_to_generate_for,
                 to_colour: EMPTY,
-                notation_move: convert_array_location_to_notation(
-                    square,
-                    (row, (column as isize + 2) as usize),
-                    None,
-                ),
+                // notation_move: convert_array_location_to_notation(
+                //     square,
+                //     (row, (column as isize + 2) as usize),
+                //     None,
+                // ),
                 en_passant: false,
 
                 promotion_to: None,

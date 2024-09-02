@@ -1,5 +1,6 @@
 use crate::board::Board;
 use crate::constants;
+use crate::moves::*;
 // use crate::evaluate;
 pub fn convert_fen_to_board(fen: &str) -> Board {
     // implementation here
@@ -171,17 +172,26 @@ pub fn convert_alphabetic_to_piece(character: char) -> i8 {
         _ => -1,
     }
 }
-
+pub fn convert_move_to_notation(chess_move: &Move) -> String {
+    let promotion = Some(match chess_move.promotion_to.unwrap_or_default(){
+        1 => 'p'.to_string(),
+        2 => 'n'.to_string(),
+        3 => 'b'.to_string(),
+        4 => 'r'.to_string(),
+        5 => 'q'.to_string(),
+        6 => 'k'.to_string(),
+        0 => ' '.to_string(),
+        _ => ' '.to_string(),
+    });
+   return convert_array_location_to_notation(chess_move.from, chess_move.to, promotion);
+    
+}
 pub fn convert_array_location_to_notation(
     from: (usize, usize),
     to: (usize, usize),
     promotion: Option<String>,
 ) -> String {
     let mut notation_move: String = Default::default();
-    if from.0 > 7 || from.1 > 7 || to.0 > 7 || to.1 > 7 {
-        return notation_move;
-    }
-
     let start_location = constants::BOARD_COORDINATES[from.0][from.1];
     let end_location = constants::BOARD_COORDINATES[to.0][to.1];
 

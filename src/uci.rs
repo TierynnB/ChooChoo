@@ -2,7 +2,7 @@
 
 use crate::board::*;
 use crate::search::*;
-use crate::{constants, conversion::*, evaluate::*};
+use crate::{constants, conversion, evaluate::*};
 use std::io;
 
 const NAME: &str = "ChooChoo";
@@ -109,7 +109,7 @@ impl CommunicationManager {
                     .push_str(format!("{} ", command_text_split.next().unwrap_or("")).as_str());
             }
             println!("fen: {}", fen_string);
-            self.board = convert_fen_to_board(fen_string.as_str());
+            self.board = conversion::convert_fen_to_board(fen_string.as_str());
         }
 
         let mut moves_token = second_token;
@@ -140,7 +140,7 @@ impl CommunicationManager {
         let mut time_taken_seconds: f32 = 0.00;
         for bench_fen in constants::BENCH_FENS {
             println!("bench fen: {}", bench_fen);
-            self.board = convert_fen_to_board(bench_fen);
+            self.board = conversion::convert_fen_to_board(bench_fen);
 
             self.engine.search(&mut self.board);
 
@@ -172,11 +172,11 @@ impl CommunicationManager {
                     self.engine.start.elapsed().as_micros(),
                     self.engine.nodes as f32 / self.engine.start.elapsed().as_secs_f32()
                 );
-
+                let notation = 
                 // get random move from best moves with matching top score.
                 println!(
                     "best move {}, score {}",
-                    outcome.1[0].best_move.notation_move, outcome.1[0].best_score
+                    conversion::convert_move_to_notation(&outcome.1[0].best_move), outcome.1[0].best_score
                 );
             }
         }
@@ -193,7 +193,7 @@ impl CommunicationManager {
                     Ok(m) => {
                         println!(
                             "made the mode: from {},{}, to: {},{}, notation: {}",
-                            m.from.0, m.from.1, m.to.0, m.to.1, m.notation_move
+                            m.from.0, m.from.1, m.to.0, m.to.1, conversion::convert_move_to_notation(&m)
                         );
                         println!("piece that move {}", m.from_piece);
                         println!(" to piece  {}", m.to_piece);
@@ -295,13 +295,18 @@ impl CommunicationManager {
             time_taken_micros,
             self.engine.nodes as f32 / time_taken_seconds
         );
-        // for bestmoves in &moves {
-        //     println!(
-        //         "move: {}, score: {}",
-        //         bestmoves.best_move.notation_move, bestmoves.best_score
-        //     );
-        // }
-        println!("bestmove {}", moves.0.notation_move);
+ 
+        println!("bestmove {}",
+         conversion::convert_array_location_to_notation(moves.0.to,moves.0.from,Some(match moves.0.promotion_to.unwrap_or(0) {
+                        1 => 'p'.to_string(),
+                                2 => 'n'.to_string(),
+                                3 => 'b'.to_string(),
+                                4 => 'r'.to_string(),
+                                5 => 'q'.to_string(),
+                                6 => 'k'.to_string(),
+                                0 => ' '.to_string(),
+                                _ => ' '.to_string(),
+                            })));
         // return moves[0];
         // do the search with the provided settings
     }
@@ -344,8 +349,8 @@ pub fn run() {
             CommandTypes::MoveList => {
                 for move_item in &manager.board.move_list {
                     println!(
-                        "move:  {}, from:{:?}, to: {:?}",
-                        move_item.notation_move, move_item.from, move_item.to
+                        "move from:{:?}, to: {:?}",
+                         move_item.from, move_item.to
                     );
                 }
             }

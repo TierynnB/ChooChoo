@@ -83,22 +83,12 @@ impl Board {
             move_list: Vec::new(),
         };
     }
-    pub fn get_attacking_squares(&self, colour: i8) -> [[bool; 8]; 8] {
-        if colour == WHITE {
-            return self.white_attacks;
-        } else {
-            return self.black_attacks;
-        }
-    }
+
 
     pub fn get_piece(&self, location: (usize, usize)) -> i8 {
         return self.board_array[location.0][location.1];
     }
     pub fn get_piece_colour(&self, location: (usize, usize)) -> i8 {
-        if location.1 > 10 {
-            println!("{} {}", location.0, location.1);
-            panic!("location out of bounds");
-        }
         return self.colour_array[location.0 as usize][location.1 as usize];
     }
     pub fn set_piece_and_colour(&mut self, location: (usize, usize), piece: i8, colour: i8) {
@@ -444,7 +434,7 @@ impl Board {
                 to_piece: EMPTY,
                 to_colour: EMPTY,
 
-                notation_move: chess_move.clone(),
+                // notation_move: chess_move.clone(),
                 promotion_to: None,
                 en_passant: false,
                 castle_from_to_square: Some((from_to_squares.2, from_to_squares.3)),
@@ -608,10 +598,7 @@ impl Board {
                 return location;
             }
         }
-        print_board(self);
-        for move_item in &self.move_list {
-            println!("move: {}", move_item.notation_move);
-        }
+        
         panic!("King not found!");
     }
 }
