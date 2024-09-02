@@ -1,8 +1,9 @@
 //! used to communicate with the engine
 
+use crate::bench;
 use crate::board::*;
 use crate::search::*;
-use crate::{constants, conversion, evaluate::*};
+use crate::{conversion, evaluate};
 use std::io;
 
 const NAME: &str = "ChooChoo";
@@ -130,32 +131,10 @@ impl CommunicationManager {
     pub fn evaluate(&self) {
         println!(
             "{}",
-            evaluate(&self.board, self.board.side_to_move) // self.board.get_running_evaluation()
+            evaluate::evaluate(&self.board, self.board.side_to_move) // self.board.get_running_evaluation()
         );
     }
-    pub fn bench(&mut self) {
-        println!("{}", CHOO_CHOO_TRAIN);
-        let mut nodes = 0;
-        let mut time_taken_micros = 0;
-        let mut time_taken_seconds: f32 = 0.00;
-        for bench_fen in constants::BENCH_FENS {
-            println!("bench fen: {}", bench_fen);
-            self.board = conversion::convert_fen_to_board(bench_fen);
 
-            self.engine.search(&mut self.board);
-
-            nodes += self.engine.nodes;
-            time_taken_micros += self.engine.start.elapsed().as_micros();
-            time_taken_seconds += self.engine.start.elapsed().as_secs_f32();
-        }
-
-        println!(
-            "nodes: {}, time:{:?}, nodes per second: {}",
-            nodes,
-            time_taken_micros,
-            nodes as f32 / time_taken_seconds
-        );
-    }
     pub fn search(&mut self, command_text: &str) {
         let mut command_text_split = command_text.split_ascii_whitespace();
         let _search_token = command_text_split.next().expect("no token");
@@ -164,7 +143,7 @@ impl CommunicationManager {
             None => println!("no more commands"),
             Some(arg_2) => {
                 self.engine = SearchEngine::new();
-                let depth: i8 = arg_2.parse::<i8>().expect("Invalid depth value");
+                let _depth: i8 = arg_2.parse::<i8>().expect("Invalid depth value");
                 let outcome = self.engine.search(&mut self.board);
                 println!(
                     "nodes: {}, time:{:?}, nodes per second: {}",
@@ -172,11 +151,12 @@ impl CommunicationManager {
                     self.engine.start.elapsed().as_micros(),
                     self.engine.nodes as f32 / self.engine.start.elapsed().as_secs_f32()
                 );
-                let notation = 
+
                 // get random move from best moves with matching top score.
                 println!(
                     "best move {}, score {}",
-                    conversion::convert_move_to_notation(&outcome.1[0].best_move), outcome.1[0].best_score
+                    conversion::convert_move_to_notation(&outcome.1[0].best_move),
+                    outcome.1[0].best_score
                 );
             }
         }
@@ -193,7 +173,11 @@ impl CommunicationManager {
                     Ok(m) => {
                         println!(
                             "made the mode: from {},{}, to: {},{}, notation: {}",
-                            m.from.0, m.from.1, m.to.0, m.to.1, conversion::convert_move_to_notation(&m)
+                            m.from.0,
+                            m.from.1,
+                            m.to.0,
+                            m.to.1,
+                            conversion::convert_move_to_notation(&m)
                         );
                         println!("piece that move {}", m.from_piece);
                         println!(" to piece  {}", m.to_piece);
@@ -221,7 +205,6 @@ impl CommunicationManager {
         }
     }
     pub fn perft(&mut self, command_text: &str) {
-        print_board(&self.board);
         let depth: i8 = command_text
             .split_ascii_whitespace()
             .nth(1)
@@ -295,18 +278,24 @@ impl CommunicationManager {
             time_taken_micros,
             self.engine.nodes as f32 / time_taken_seconds
         );
- 
-        println!("bestmove {}",
-         conversion::convert_array_location_to_notation(moves.0.to,moves.0.from,Some(match moves.0.promotion_to.unwrap_or(0) {
-                        1 => 'p'.to_string(),
-                                2 => 'n'.to_string(),
-                                3 => 'b'.to_string(),
-                                4 => 'r'.to_string(),
-                                5 => 'q'.to_string(),
-                                6 => 'k'.to_string(),
-                                0 => ' '.to_string(),
-                                _ => ' '.to_string(),
-                            })));
+
+        println!(
+            "bestmove {}",
+            conversion::convert_array_location_to_notation(
+                moves.0.to,
+                moves.0.from,
+                Some(match moves.0.promotion_to.unwrap_or(0) {
+                    1 => 'p'.to_string(),
+                    2 => 'n'.to_string(),
+                    3 => 'b'.to_string(),
+                    4 => 'r'.to_string(),
+                    5 => 'q'.to_string(),
+                    6 => 'k'.to_string(),
+                    0 => ' '.to_string(),
+                    _ => ' '.to_string(),
+                })
+            )
+        );
         // return moves[0];
         // do the search with the provided settings
     }
@@ -348,10 +337,7 @@ pub fn run() {
             CommandTypes::UciNewGame => {} // do nothing
             CommandTypes::MoveList => {
                 for move_item in &manager.board.move_list {
-                    println!(
-                        "move from:{:?}, to: {:?}",
-                         move_item.from, move_item.to
-                    );
+                    println!("move from:{:?}, to: {:?}", move_item.from, move_item.to);
                 }
             }
             CommandTypes::Invalid => {
@@ -359,7 +345,7 @@ pub fn run() {
                 println!("{}", &buffer);
             }
             CommandTypes::SetOption => {}
-            CommandTypes::Bench => manager.bench(),
+            CommandTypes::Bench => bench::bench(), //manager.bench(),
             CommandTypes::IsReady => println!("readyok"),
             CommandTypes::Go => manager.go(&buffer),
             CommandTypes::GetFen => println!("{}", manager.board.get_fen()),

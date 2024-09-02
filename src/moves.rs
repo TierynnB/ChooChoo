@@ -6,12 +6,11 @@ pub struct Move {
     pub to: (usize, usize),
     pub to_piece: i8,
     pub to_colour: i8,
-    // pub notation_move: String,
     pub promotion_to: Option<i8>,
     pub en_passant: bool,
     pub castle_from_to_square: Option<((usize, usize), (usize, usize))>,
     pub castling_intermediary_square: Option<(usize, usize)>,
-    pub sort_score: i32,
+    pub sort_score: u8,
     pub search_score: i32,
     pub illegal_move: bool,
 }
@@ -25,8 +24,6 @@ impl Default for Move {
             to: (0, 0),
             to_piece: 0,
             to_colour: 0,
-
-            // notation_move: String::default(),
             promotion_to: None,
             en_passant: false,
             castle_from_to_square: None,

@@ -61,6 +61,7 @@ pub fn is_in_check(
             if outcome {
                 return outcome;
             }
+
             if aditional_square_to_check.is_some() {
                 let outcome = is_attacked_by_piece_from_square(
                     board,
@@ -110,9 +111,12 @@ pub fn is_attacked_by_piece_from_square(
         KNIGHT => {
             if difference_in_row > 2
                 || difference_in_column > 2
-                || difference_in_row < 2
-                || difference_in_column < 2
+                || (difference_in_row < 2 && difference_in_column < 2)
             {
+                println!("knight from :{:?}", square_from);
+                println!("attacking from :{:?}", square_to);
+                println!("difference in row {}", difference_in_row);
+                println!("difference in column {}", difference_in_column);
                 return false;
             };
             // println!("generating knight attacks");
@@ -185,4 +189,62 @@ pub fn is_attacked_by_piece_from_square(
     // if queen not attacking along diagonal, check on correct file for rook-like attack.
 
     return false;
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::conversion;
+    use crate::evaluate;
+    #[test]
+    fn evaluate_even_1() {
+        let board = conversion::convert_fen_to_board(
+            "rnbqkbnr/8/8/pppppppp/PPPPPPPP/8/8/RNBQKBNR w KQkq a6 0 9",
+        );
+
+        let eval = evaluate::evaluate(&board, 1);
+        assert!(eval < 100 && eval > -100, "Not around 0 eval");
+    }
+    #[test]
+    fn evaluate_even_2() {
+        let board = conversion::convert_fen_to_board(
+            "2b2N1k/1p5P/1P2p2P/4Pp2/4pP2/1p2P2p/1P5p/2B2n1K w - - 0 1",
+        );
+
+        let eval = evaluate::evaluate(&board, 1);
+        assert!(eval < 100 && eval > -100, "Not around 0 eval");
+    }
+    #[test]
+    fn evaluate_even_3() {
+        let board = conversion::convert_fen_to_board(
+            "b1nr1k1n/pp1Bp1p1/8/2p5/2P5/8/PP1bP1P1/B1NR1K1N w Qq - 0 7",
+        );
+
+        let eval = evaluate::evaluate(&board, 1);
+        assert!(eval < 100 && eval > -100, "Not around 0 eval");
+    }
+    #[test]
+    fn evaluate_white_1() {
+        let board = conversion::convert_fen_to_board("Q1k5/8/1K6/8/8/5B2/8/8 b - - 0 64");
+
+        let eval = evaluate::evaluate(&board, 1);
+        assert!(eval > 1000, "position does not favour white!");
+    }
+
+    #[test]
+    fn evaluate_white_2() {
+        let board =
+            conversion::convert_fen_to_board("5k2/5p2/4pQp1/4P1Np/7P/6P1/4qP1K/8 b - - 10 41");
+
+        let eval = evaluate::evaluate(&board, 1);
+        assert!(eval > 100, "position does not favour white!");
+    }
+    #[test]
+    fn evaluate_black_1() {
+        let board = conversion::convert_fen_to_board("1k6/7p/4q3/3n4/3K4/2q5/7P/8 w - - 2 50");
+
+        let eval = evaluate::evaluate(&board, 2);
+        assert!(eval > 1000, "position does not favour black!");
+    }
+
+    // test black favoured position favour black
 }

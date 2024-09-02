@@ -72,18 +72,15 @@ impl Board {
             can_castle_a8: true,
             can_castle_h1: true,
             can_castle_h8: true,
-            // en_passant: false,
             en_passant_location: None,
             ply: 0,
             side_to_move: 1,
             hash_of_previous_positions: Vec::new(),
             ply_record: Vec::new(),
-            // running_evaluation: 0,
             player_colour: 1,
             move_list: Vec::new(),
         };
     }
-
 
     pub fn get_piece(&self, location: (usize, usize)) -> i8 {
         return self.board_array[location.0][location.1];
@@ -99,7 +96,7 @@ impl Board {
     pub fn get_fen(&self) -> String {
         // TODO
 
-        let mut fen = String::new();
+        // let mut fen = String::new();
 
         return "".to_string();
     }
@@ -139,7 +136,6 @@ impl Board {
         self.hash_of_previous_positions = Vec::new();
         self.ply_record = Vec::new();
         self.move_list = Vec::new();
-        // self.running_evaluation = 0;
         self.player_colour = 1;
     }
     fn _clear_hash_of_previous_positions(&mut self) {
@@ -382,7 +378,7 @@ impl Board {
                 self.set_piece_and_colour(self.en_passant_location.unwrap(), PAWN, enemy_colour);
             }
         }
-        // addd pawn back from en passant
+        // add pawn back from en passant
     }
 
     pub fn convert_notation_to_move(&self, mut chess_move: String) -> Result<Move, String> {
@@ -598,7 +594,7 @@ impl Board {
                 return location;
             }
         }
-        
+
         panic!("King not found!");
     }
 }

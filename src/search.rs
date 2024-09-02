@@ -1,10 +1,9 @@
 use crate::board::Board;
 use crate::constants::*;
+use crate::conversion;
 use crate::evaluate;
 use crate::movegen::*;
-use crate::conversion;
 use crate::moves::*;
-use core::time;
 use std::time::Instant;
 pub struct MoveNode {
     pub move_notation: String,
@@ -32,7 +31,7 @@ pub fn order_moves(moves: &mut Vec<Move>) {
         let move_to_score = moves.get_mut(i).unwrap();
         let value = MVV_LVA[move_to_score.to_piece as usize][move_to_score.from_piece as usize];
         // println!("{} {}", move_to_score.notation_move, value);
-        move_to_score.sort_score += value as i32;
+        move_to_score.sort_score += value;
     }
 
     moves.sort_by(|a, b| a.sort_score.cmp(&b.sort_score));
@@ -155,7 +154,7 @@ impl SearchEngine {
             for generated_move in moves_for_current_depth.iter_mut() {
                 board.make_move(generated_move);
 
-                if board.has_positions_repeated(){
+                if board.has_positions_repeated() {
                     generated_move.illegal_move = true;
                     board.un_make_move(generated_move);
                     continue;
@@ -176,7 +175,6 @@ impl SearchEngine {
                     self.minimax(board, local_depth, true, i32::MIN, i32::MAX);
 
                 board.un_make_move(generated_move);
-
             }
 
             moves_for_current_depth.retain(|m| !m.illegal_move);
@@ -188,7 +186,11 @@ impl SearchEngine {
                 }
             }
 
-            if local_depth < self.depth || (!(self.start.elapsed().as_millis() > self.get_allowed_time(self.searching_side)) && self.use_time_management) {
+            if local_depth < self.depth
+                || (!(self.start.elapsed().as_millis()
+                    > self.get_allowed_time(self.searching_side))
+                    && self.use_time_management)
+            {
                 local_depth += 1;
             } else {
                 searching = false;
@@ -219,7 +221,7 @@ impl SearchEngine {
     }
 
     pub fn perft(&mut self, board: &mut Board, depth: i8, first_call: bool) -> i128 {
-        let mut nodes_per_root_move: i128 = 0;
+        let mut nodes_per_root_move: i128;
         let mut nodes: i128 = 0;
         if depth == 0 {
             return 1;
@@ -251,11 +253,7 @@ impl SearchEngine {
             if first_call {
                 // update root node here with number
                 self.move_nodes.push(MoveNode {
-
-                     //        
-
-                    move_notation: conversion::convert_move_to_notation(generated_move)
-                               ,
+                    move_notation: conversion::convert_move_to_notation(generated_move),
                     nodes: nodes_per_root_move,
                 });
                 self.nodes += nodes;
@@ -264,10 +262,188 @@ impl SearchEngine {
 
         return nodes;
     }
+}
 
-    pub fn bench() {
-        // run a series of fens,
-        // output total nodes searched
-        // are these legal moves?
+#[cfg(test)]
+mod tests {
+    use crate::conversion;
+    use crate::search::Board;
+    use crate::search::SearchEngine;
+    #[test]
+    fn perft_1_startpos() {
+        let mut engine = SearchEngine::new();
+        let mut board = Board::init();
+
+        let nodes = engine.perft(&mut board, 1, true);
+        assert_eq!(nodes, 20);
+    }
+    #[test]
+    fn perft_2_startpos() {
+        let mut engine = SearchEngine::new();
+        let mut board = Board::init();
+
+        let nodes = engine.perft(&mut board, 2, true);
+        assert_eq!(nodes, 400);
+    }
+
+    #[test]
+    fn perft_3_startpos() {
+        let mut engine = SearchEngine::new();
+        let mut board = Board::init();
+
+        let nodes = engine.perft(&mut board, 3, true);
+        assert_eq!(nodes, 8902);
+    }
+    #[test]
+    fn perft_4_startpos() {
+        let mut engine = SearchEngine::new();
+        let mut board = Board::init();
+
+        let nodes = engine.perft(&mut board, 4, true);
+        assert_eq!(nodes, 197281);
+    }
+
+    #[test]
+    fn perft_1_kiwipete() {
+        let mut engine = SearchEngine::new();
+        let mut board = conversion::convert_fen_to_board(
+            "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - ",
+        );
+
+        let nodes = engine.perft(&mut board, 1, true);
+        assert_eq!(nodes, 48);
+    }
+    #[test]
+    fn perft_2_kiwipete() {
+        let mut engine = SearchEngine::new();
+        let mut board = conversion::convert_fen_to_board(
+            "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - ",
+        );
+
+        let nodes = engine.perft(&mut board, 2, true);
+        assert_eq!(nodes, 2039);
+    }
+    #[test]
+    fn perft_3_kiwipete() {
+        let mut engine = SearchEngine::new();
+        let mut board = conversion::convert_fen_to_board(
+            "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - ",
+        );
+
+        let nodes = engine.perft(&mut board, 3, true);
+        assert_eq!(nodes, 97862);
+    }
+
+    #[test]
+    fn perft_1_position_3() {
+        let mut engine = SearchEngine::new();
+        let mut board = conversion::convert_fen_to_board("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - ");
+
+        let nodes = engine.perft(&mut board, 1, true);
+        assert_eq!(nodes, 14);
+    }
+    #[test]
+    fn perft_2_position_3() {
+        let mut engine = SearchEngine::new();
+        let mut board = conversion::convert_fen_to_board("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - ");
+
+        let nodes = engine.perft(&mut board, 2, true);
+        assert_eq!(nodes, 191);
+    }
+    #[test]
+    fn perft_3_position_3() {
+        let mut engine = SearchEngine::new();
+        let mut board = conversion::convert_fen_to_board("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - ");
+
+        let nodes = engine.perft(&mut board, 3, true);
+        assert_eq!(nodes, 2812);
+    }
+    #[test]
+    fn perft_4_position_3() {
+        let mut engine = SearchEngine::new();
+        let mut board = conversion::convert_fen_to_board("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - ");
+
+        let nodes = engine.perft(&mut board, 4, true);
+        assert_eq!(nodes, 43238);
+    }
+    #[test]
+    fn perft_5_position_3() {
+        let mut engine = SearchEngine::new();
+        let mut board = conversion::convert_fen_to_board("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - ");
+
+        let nodes = engine.perft(&mut board, 5, true);
+        assert_eq!(nodes, 674624);
+    }
+
+    #[test]
+    fn perft_1_position_4() {
+        let mut engine = SearchEngine::new();
+        let mut board = conversion::convert_fen_to_board(
+            "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
+        );
+
+        let nodes = engine.perft(&mut board, 1, true);
+        assert_eq!(nodes, 6);
+    }
+    #[test]
+    fn perft_2_position_4() {
+        let mut engine = SearchEngine::new();
+        let mut board = conversion::convert_fen_to_board(
+            "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
+        );
+
+        let nodes = engine.perft(&mut board, 2, true);
+        assert_eq!(nodes, 264);
+    }
+    #[test]
+    fn perft_3_position_4() {
+        let mut engine = SearchEngine::new();
+        let mut board = conversion::convert_fen_to_board(
+            "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
+        );
+
+        let nodes = engine.perft(&mut board, 3, true);
+        assert_eq!(nodes, 9467);
+    }
+    #[test]
+    fn perft_4_position_4() {
+        let mut engine = SearchEngine::new();
+        let mut board = conversion::convert_fen_to_board(
+            "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
+        );
+
+        let nodes = engine.perft(&mut board, 4, true);
+        assert_eq!(nodes, 422333);
+    }
+
+    #[test]
+    fn perft_1_position_5() {
+        let mut engine = SearchEngine::new();
+        let mut board = conversion::convert_fen_to_board(
+            "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
+        );
+
+        let nodes = engine.perft(&mut board, 1, true);
+        assert_eq!(nodes, 44);
+    }
+    #[test]
+    fn perft_2_position_5() {
+        let mut engine = SearchEngine::new();
+        let mut board = conversion::convert_fen_to_board(
+            "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
+        );
+
+        let nodes = engine.perft(&mut board, 2, true);
+        assert_eq!(nodes, 1486);
+    }
+    #[test]
+    fn perft_3_position_5() {
+        let mut engine = SearchEngine::new();
+        let mut board = conversion::convert_fen_to_board(
+            "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
+        );
+
+        let nodes = engine.perft(&mut board, 3, true);
+        assert_eq!(nodes, 62379);
     }
 }

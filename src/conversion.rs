@@ -173,7 +173,7 @@ pub fn convert_alphabetic_to_piece(character: char) -> i8 {
     }
 }
 pub fn convert_move_to_notation(chess_move: &Move) -> String {
-    let promotion = Some(match chess_move.promotion_to.unwrap_or_default(){
+    let promotion = Some(match chess_move.promotion_to.unwrap_or_default() {
         1 => 'p'.to_string(),
         2 => 'n'.to_string(),
         3 => 'b'.to_string(),
@@ -183,8 +183,7 @@ pub fn convert_move_to_notation(chess_move: &Move) -> String {
         0 => ' '.to_string(),
         _ => ' '.to_string(),
     });
-   return convert_array_location_to_notation(chess_move.from, chess_move.to, promotion);
-    
+    return convert_array_location_to_notation(chess_move.from, chess_move.to, promotion);
 }
 pub fn convert_array_location_to_notation(
     from: (usize, usize),

@@ -1,35 +1,11 @@
-use crate::{board::*, constants::*, conversion::*, moves::*};
+use crate::{
+    board::*,
+    constants::*,
+    //  conversion::*,
+    moves::*,
+};
 use std::vec;
 
-pub struct CastlingSquaresAttacked {
-    pub d1_attacked: bool,
-    pub c1_attacked: bool,
-    pub e1_attacked: bool,
-    pub f1_attacked: bool,
-    pub g1_attacked: bool,
-    pub d8_attacked: bool,
-    pub c8_attacked: bool,
-    pub e8_attacked: bool,
-    pub f8_attacked: bool,
-    pub g8_attacked: bool,
-}
-
-impl Default for CastlingSquaresAttacked {
-    fn default() -> Self {
-        return CastlingSquaresAttacked {
-            d1_attacked: false,
-            c1_attacked: false,
-            e1_attacked: false,
-            f1_attacked: false,
-            g1_attacked: false,
-            d8_attacked: false,
-            c8_attacked: false,
-            e8_attacked: false,
-            f8_attacked: false,
-            g8_attacked: false,
-        };
-    }
-}
 pub fn get_pawn_attacks(
     square: (usize, usize),
     side_to_generate_for: i8,
@@ -85,7 +61,7 @@ pub fn generate_pawn_moves(
         2 => 1,
         _ => 0,
     };
-    let enemy_color = if side_to_generate_for == 1 { 2 } else { 1 };
+    let _enemy_color = if side_to_generate_for == 1 { 2 } else { 1 };
 
     // know if double jump allowed if from starting row
     let starting_row = if side_to_generate_for == 1 { 6 } else { 1 };
@@ -134,11 +110,6 @@ pub fn generate_pawn_moves(
             to_piece: square_in_front,
             from_colour: side_to_generate_for,
             to_colour: EMPTY,
-            // notation_move: convert_array_location_to_notation(
-            //     square,
-            //     (index_of_square_in_front, column),
-            //     None,
-            // ),
             en_passant: false,
 
             promotion_to: None,
@@ -167,21 +138,7 @@ pub fn generate_pawn_moves(
                     to_piece: to_piece_type,
                     from_colour: side_to_generate_for,
                     to_colour: to_square_colour,
-                    // notation_move: convert_array_location_to_notation(
-                    //     square,
-                    //     attack_square,
-                    //     Some(match piece {
-                    //         1 => 'p'.to_string(),
-                    //         2 => 'n'.to_string(),
-                    //         3 => 'b'.to_string(),
-                    //         4 => 'r'.to_string(),
-                    //         5 => 'q'.to_string(),
-                    //         6 => 'k'.to_string(),
-                    //         0 => ' '.to_string(),
-                    //         -1 => ' '.to_string(),
-                    //         _ => ' '.to_string(),
-                    //     }),
-                    // ),
+
                     en_passant: false,
 
                     promotion_to: Some(piece),
@@ -200,7 +157,6 @@ pub fn generate_pawn_moves(
                 to_piece: to_piece_type,
                 from_colour: side_to_generate_for,
                 to_colour: to_square_colour,
-                // notation_move: convert_array_location_to_notation(square, attack_square, None),
                 en_passant: false,
 
                 promotion_to: None,
@@ -230,12 +186,6 @@ pub fn generate_pawn_moves(
                 to_piece: square_in_front,
                 from_colour: side_to_generate_for,
                 to_colour: EMPTY,
-                // notation_move: convert_array_location_to_notation(
-                //     square,
-                //     (index_of_square_in_front, column),
-                //     None,
-                // ),
-
                 promotion_to: None,
                 en_passant: true,
                 castle_from_to_square: None,
@@ -261,11 +211,6 @@ pub fn generate_pawn_moves(
                 to_piece: EMPTY,
                 from_colour: side_to_generate_for,
                 to_colour: EMPTY,
-                // notation_move: convert_array_location_to_notation(
-                //     square,
-                //     (index_of_square_in_front as usize, move_info.1),
-                //     None,
-                // ),
 
                 promotion_to: None,
                 en_passant: false,
@@ -346,11 +291,7 @@ pub fn generate_knight_moves(
             to_piece: to_piece_type,
             from_colour: side_to_generate_for,
             to_colour: to_square_colour,
-            // notation_move: convert_array_location_to_notation(
-            //     square,
-            //     (attack_square.0, attack_square.1),
-            //     None,
-            // ),
+
             en_passant: false,
 
             promotion_to: None,
@@ -425,11 +366,6 @@ pub fn generate_bishop_moves(
             to_piece: to_piece_type,
             from_colour: side_to_generate_for,
             to_colour: to_square_colour,
-            // notation_move: convert_array_location_to_notation(
-            //     square,
-            //     (attack_square.0, attack_square.1),
-            //     None,
-            // ),
             en_passant: false,
 
             promotion_to: None,
@@ -505,11 +441,6 @@ pub fn generate_rook_moves(
             to_piece: to_piece_type,
             from_colour: side_to_generate_for,
             to_colour: to_square_colour,
-            // notation_move: convert_array_location_to_notation(
-            //     square,
-            //     (attack_square.0, attack_square.1),
-            //     None,
-            // ),
             en_passant: false,
 
             promotion_to: None,
@@ -595,11 +526,7 @@ pub fn generate_queen_moves(
             to_piece: to_piece_type,
             from_colour: side_to_generate_for,
             to_colour: to_square_colour,
-            // notation_move: convert_array_location_to_notation(
-            //     square,
-            //     (attack_square.0, attack_square.1),
-            //     None,
-            // ),
+
             en_passant: false,
 
             promotion_to: None,
@@ -690,11 +617,7 @@ pub fn generate_king_moves(
             to_piece: to_piece_type,
             from_colour: side_to_generate_for,
             to_colour: to_square_colour,
-            // notation_move: convert_array_location_to_notation(
-            //     square,
-            //     (attack_square.0, attack_square.1),
-            //     None,
-            // ),
+
             en_passant: false,
 
             promotion_to: None,
@@ -732,11 +655,7 @@ pub fn generate_king_moves(
                 to_piece: EMPTY,
                 from_colour: side_to_generate_for,
                 to_colour: EMPTY,
-                // notation_move: convert_array_location_to_notation(
-                //     square,
-                //     (row, (column as isize - 2) as usize),
-                //     None,
-                // ),
+
                 en_passant: false,
 
                 promotion_to: None,
@@ -755,11 +674,7 @@ pub fn generate_king_moves(
                 to_piece: EMPTY,
                 from_colour: side_to_generate_for,
                 to_colour: EMPTY,
-                // notation_move: convert_array_location_to_notation(
-                //     square,
-                //     (row, (column as isize + 2) as usize),
-                //     None,
-                // ),
+
                 en_passant: false,
 
                 promotion_to: None,
@@ -785,11 +700,7 @@ pub fn generate_king_moves(
                 to_piece: EMPTY,
                 from_colour: side_to_generate_for,
                 to_colour: EMPTY,
-                // notation_move: convert_array_location_to_notation(
-                //     square,
-                //     (row, (column as isize - 2) as usize),
-                //     None,
-                // ),
+
                 en_passant: false,
 
                 promotion_to: None,
@@ -808,11 +719,7 @@ pub fn generate_king_moves(
                 to_piece: EMPTY,
                 from_colour: side_to_generate_for,
                 to_colour: EMPTY,
-                // notation_move: convert_array_location_to_notation(
-                //     square,
-                //     (row, (column as isize + 2) as usize),
-                //     None,
-                // ),
+
                 en_passant: false,
 
                 promotion_to: None,

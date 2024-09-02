@@ -1,3 +1,4 @@
+pub mod bench;
 pub mod board;
 pub mod constants;
 pub mod conversion;
