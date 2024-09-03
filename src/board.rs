@@ -306,6 +306,11 @@ impl Board {
             return Err("cannot move empty colour".to_string());
         }
 
+        println!(
+            "from: {:?},from piece: {:?}, to: {:?}, to piece: {}",
+            move_to_do.from, move_to_do.to, move_to_do.from_piece, move_to_do.to_piece
+        );
+
         self.make_move(&move_to_do);
         return Ok(move_to_do);
     }

@@ -269,9 +269,9 @@ impl CommunicationManager {
             }
         }
         let moves = self.engine.search(&mut self.board);
-        let time_taken_micros = self.engine.start.elapsed().as_micros();
+        let time_taken_micros = self.engine.start.elapsed().as_millis();
         let time_taken_seconds = self.engine.start.elapsed().as_secs_f32();
-
+        println!("{}", moves.1.len());
         println!(
             "nodes: {}, time:{:?}, nodes per second: {}",
             self.engine.nodes,

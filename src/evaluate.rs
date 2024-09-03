@@ -3,27 +3,59 @@ use crate::{constants::*, conversion, movegen::*};
 
 pub fn evaluate(board: &Board, searching_side: i8) -> i32 {
     let mut score: i32 = 0;
+
     // go through each piece on the board, by colour to only get moves for side to move.
-    for (row_index, row) in board.colour_array.iter().enumerate() {
-        for (column_index, colour) in row.iter().enumerate() {
+    for (external_row_index, row) in board.colour_array.iter().enumerate() {
+        for (external_column_index, colour) in row.iter().enumerate() {
+            let mut is_protected: bool = false;
             // let location = (row_index, column_index);
-            let square = board.get_piece((row_index, column_index));
+            let square = board.get_piece((external_row_index, external_column_index));
 
             if square == EMPTY {
                 continue;
             }
 
-            let mut score_for_piece_type =
-                conversion::get_piece_square_value((row_index, column_index), square, *colour);
+            let mut score_for_piece_type = conversion::get_piece_square_value(
+                (external_row_index, external_column_index),
+                square,
+                *colour,
+            );
             score_for_piece_type += match square {
-                PAWN => 82,
-                KNIGHT => 337,
-                BISHOP => 365,
-                ROOK => 525,
-                QUEEN => 1025,
+                PAWN => 100,
+                KNIGHT => 200,
+                BISHOP => 250,
+                ROOK => 400,
+                QUEEN => 800,
                 KING => 10000,
                 _ => 0,
             };
+            for (row_index, row) in board.colour_array.iter().enumerate() {
+                for (column_index, square_colour) in row.iter().enumerate() {
+                    let piece_type = board.get_piece((row_index, column_index));
+
+                    if (row_index, column_index) == (external_row_index, external_column_index) {
+                        continue;
+                    }
+                    is_protected = is_attacked_by_piece_from_square(
+                        board,
+                        (row_index, column_index),
+                        piece_type,
+                        (external_row_index, external_column_index),
+                        *square_colour,
+                    );
+                    if is_protected {
+                        break;
+                    }
+                }
+                if is_protected {
+                    break;
+                }
+            }
+
+            if !is_protected {
+                score_for_piece_type = (score_for_piece_type as f64 * 0.5) as i32;
+            }
+
             // if for other side, make negative.
             if colour != &searching_side {
                 score_for_piece_type *= -1;
@@ -116,9 +148,7 @@ pub fn is_attacked_by_piece_from_square(
                 return false;
             };
             for attack in get_knight_attacks(square_from, side_to_generate_for, board) {
-    
                 if attack == square_to {
-                   
                     return true;
                 }
             }

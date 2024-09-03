@@ -2,7 +2,7 @@ use crate::board::Board;
 use crate::constants::*;
 use crate::conversion;
 use crate::evaluate;
-use crate::movegen::*;
+use crate::movegen;
 use crate::moves::*;
 use std::time::Instant;
 pub struct MoveNode {
@@ -89,10 +89,11 @@ impl SearchEngine {
         }
         // generate moves for current depth of board
         let mut moves_for_current_depth =
-            generate_pseudo_legal_moves(board, board.side_to_move, false);
+            movegen::generate_pseudo_legal_moves(board, board.side_to_move, false);
+
         order_moves(&mut moves_for_current_depth);
         if maximizing_player {
-            let mut max_eval = -1000;
+            let mut max_eval = i32::MIN;
             for generated_move in moves_for_current_depth.iter() {
                 board.make_move(generated_move);
 
@@ -108,7 +109,7 @@ impl SearchEngine {
             return max_eval;
         // and best outcome for minimising player (enemy)
         } else {
-            let mut min_eval = 1000;
+            let mut min_eval = i32::MAX;
             for generated_move in moves_for_current_depth.iter() {
                 board.make_move(generated_move);
 
@@ -129,7 +130,7 @@ impl SearchEngine {
         // adding in iterative deepening?
         let mut searching = true;
         let mut best_move = Move::default();
-        let mut best_score = -1000;
+        let mut best_score = i32::MIN;
         let mut best_moves = Vec::new();
         let mut local_depth = 1;
 
@@ -137,17 +138,13 @@ impl SearchEngine {
         self.nodes = 0;
         self.start = Instant::now();
 
-        // itereative deepening
-        // starts at depth 1, then after each depth search,
-        // check elapsed time, sort moves, and search again at depth += 1
-
         let current_side = board.side_to_move;
 
         let currently_in_check = evaluate::is_in_check(board, current_side, None);
 
         // generate moves for current depth of board
         let mut moves_for_current_depth =
-            generate_pseudo_legal_moves(board, board.side_to_move, currently_in_check);
+            movegen::generate_pseudo_legal_moves(board, board.side_to_move, currently_in_check);
         order_moves(&mut moves_for_current_depth);
 
         while searching {
@@ -207,6 +204,10 @@ impl SearchEngine {
         }
 
         for generated_move in moves_for_current_depth.iter() {
+            // println!(
+            //     "move {:?}, score{}",
+            //     generated_move.from, generated_move.search_score,
+            // );
             if generated_move.search_score > best_score {
                 best_score = generated_move.search_score;
                 best_move = generated_move.clone();
@@ -232,7 +233,7 @@ impl SearchEngine {
         let currently_in_check = evaluate::is_in_check(board, current_side, None);
 
         let moves_for_current_depth =
-            generate_pseudo_legal_moves(board, board.side_to_move, currently_in_check);
+            movegen::generate_pseudo_legal_moves(board, board.side_to_move, currently_in_check);
 
         for generated_move in moves_for_current_depth.iter() {
             board.make_move(generated_move);
