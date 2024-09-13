@@ -1,5 +1,8 @@
 use crate::board::Board;
 use crate::constants;
+use crate::constants::BLACK;
+use crate::constants::WHITE;
+use crate::evaluate;
 use crate::moves::*;
 // use crate::evaluate;
 pub fn convert_fen_to_board(fen: &str) -> Board {
@@ -31,9 +34,11 @@ pub fn convert_fen_to_board(fen: &str) -> Board {
                         }
 
                         if character.is_alphabetic() {
-                            // board.board_array[current_row][current_column] =
-                            //     convert_alphabetic_to_piece(character);
-                            let piece_colour = if character.is_uppercase() { 1 } else { 2 };
+                            let piece_colour = if character.is_uppercase() {
+                                WHITE
+                            } else {
+                                BLACK
+                            };
 
                             board.set_piece_and_colour(
                                 (current_row, current_column),
@@ -58,8 +63,8 @@ pub fn convert_fen_to_board(fen: &str) -> Board {
             1 => {
                 // side to move
                 match section {
-                    "w" => board.side_to_move = 1,
-                    "b" => board.side_to_move = 2,
+                    "w" => board.side_to_move = WHITE,
+                    "b" => board.side_to_move = BLACK,
                     "-" => {}
                     _ => todo!(), // probably panic
                 }
@@ -137,7 +142,7 @@ pub fn convert_fen_to_board(fen: &str) -> Board {
     return board;
 }
 
-pub fn get_piece_square_value(location: (usize, usize), piece_type: i8, colour: i8) -> i32 {
+pub fn get_piece_square_value_mg(location: (usize, usize), piece_type: i8, colour: i8) -> i32 {
     if colour == constants::WHITE {
         return match piece_type {
             constants::PAWN => constants::MG_PAWN_TABLE[location.0][location.1],
@@ -160,7 +165,29 @@ pub fn get_piece_square_value(location: (usize, usize), piece_type: i8, colour: 
         };
     }
 }
-
+pub fn get_piece_square_value_eg(location: (usize, usize), piece_type: i8, colour: i8) -> i32 {
+    if colour == constants::WHITE {
+        return match piece_type {
+            constants::PAWN => constants::MG_PAWN_TABLE[location.0][location.1],
+            constants::KNIGHT => constants::MG_KNIGHT_TABLE[location.0][location.1],
+            constants::BISHOP => constants::MG_BISHOP_TABLE[location.0][location.1],
+            constants::ROOK => constants::MG_ROOK_TABLE[location.0][location.1],
+            constants::QUEEN => constants::MG_QUEEN_TABLE[location.0][location.1],
+            constants::KING => constants::EG_KING_TABLE[location.0][location.1],
+            _ => 0,
+        };
+    } else {
+        return match piece_type {
+            constants::PAWN => constants::MG_PAWN_TABLE[7 - (location.0)][7 - (location.1)],
+            constants::KNIGHT => constants::MG_KNIGHT_TABLE[7 - (location.0)][7 - (location.1)],
+            constants::BISHOP => constants::MG_BISHOP_TABLE[7 - (location.0)][7 - (location.1)],
+            constants::ROOK => constants::MG_ROOK_TABLE[7 - (location.0)][7 - (location.1)],
+            constants::QUEEN => constants::MG_QUEEN_TABLE[7 - (location.0)][7 - (location.1)],
+            constants::KING => constants::EG_KING_TABLE[7 - (location.0)][7 - (location.1)],
+            _ => 0,
+        };
+    }
+}
 pub fn convert_alphabetic_to_piece(character: char) -> i8 {
     match character.to_ascii_uppercase() {
         'K' => constants::KING,
@@ -217,6 +244,10 @@ pub fn convert_notation_to_location(chess_move: &str) -> Option<(usize, usize)> 
         }
     }
     return Some(location);
+}
+
+pub fn normalise_score_to_cp(score: i32) -> f64 {
+    return (2.00 * (1.00 / (1.00 + (-score as f64 / 1000.00).exp())) - 1.00).clamp(-1.00, 1.00);
 }
 /// convert current board state into fen
 pub fn convert_board_to_fen(_board: &Board) -> String {

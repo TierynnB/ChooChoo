@@ -18,12 +18,15 @@ pub struct SearchEngine {
     pub start: Instant,
     pub move_nodes: Vec<MoveNode>,
     pub depth: i8,
+    pub current_depth: i8,
     pub wtime: u128,
+    pub movetime: u128,
     pub btime: u128,
     pub winc: u128,
     pub binc: u128,
     pub use_time_management: bool,
     pub searching_side: i8,
+    pub move_overhead: u128,
 }
 
 pub fn order_moves(moves: &mut Vec<Move>) {
@@ -34,9 +37,7 @@ pub fn order_moves(moves: &mut Vec<Move>) {
         move_to_score.sort_score += value;
     }
 
-    moves.sort_by(|a, b| a.sort_score.cmp(&b.sort_score));
-    // sort moves
-    // captures first
+    moves.sort_by(|a, b| b.sort_score.cmp(&a.sort_score));
 }
 impl SearchEngine {
     pub fn new() -> Self {
@@ -45,7 +46,10 @@ impl SearchEngine {
             start: Instant::now(),
             move_nodes: Vec::new(),
             depth: 3,
+            current_depth: 1,
             winc: 0,
+            movetime: 0,
+            move_overhead: 10,
             wtime: 0,
             binc: 0,
             btime: 0,
@@ -55,6 +59,10 @@ impl SearchEngine {
     }
     pub fn get_allowed_time(&self, side: i8) -> u128 {
         if self.use_time_management {
+            if self.movetime > 0 {
+                return self.movetime - 2 * self.move_overhead;
+            }
+
             let time_left = if side == WHITE {
                 self.wtime
             } else {
@@ -62,8 +70,8 @@ impl SearchEngine {
             };
 
             let increment = if side == WHITE { self.winc } else { self.binc };
-
-            return time_left / 30 + increment;
+            println!("{} {}", self.move_overhead, increment);
+            return (time_left / 30 + increment - 2 * self.move_overhead) as u128;
         } else {
             return 10000;
         }
@@ -79,6 +87,7 @@ impl SearchEngine {
         // the move needs to record its own evaluation
         if depth == 0 {
             self.nodes += 1;
+
             return evaluate::evaluate(&board, self.searching_side);
         };
 
@@ -87,6 +96,7 @@ impl SearchEngine {
                 return evaluate::evaluate(&board, self.searching_side);
             }
         }
+
         // generate moves for current depth of board
         let mut moves_for_current_depth =
             movegen::generate_pseudo_legal_moves(board, board.side_to_move, false);
@@ -126,13 +136,38 @@ impl SearchEngine {
         }
     }
 
+    pub fn negamax(&mut self, board: &mut Board, depth: i8, mut alpha: i32, mut beta: i32) -> i32 {
+        let mut max_eval = i32::MIN;
+        if depth == 0 {
+            self.nodes += 1;
+            return evaluate::evaluate(&board, self.searching_side);
+        };
+
+        let mut moves_for_current_depth =
+            movegen::generate_pseudo_legal_moves(board, board.side_to_move, false);
+
+        order_moves(&mut moves_for_current_depth);
+
+        for generated_move in moves_for_current_depth.iter() {
+            board.make_move(generated_move);
+            let eval = -self.negamax(board, depth - 1, alpha, beta);
+            board.un_make_move(generated_move);
+
+            max_eval = std::cmp::max(max_eval, eval);
+            alpha = std::cmp::max(alpha, eval);
+            if beta <= alpha {
+                break;
+            }
+        }
+        return max_eval;
+    }
+
     pub fn search(&mut self, board: &mut Board) -> (Move, Vec<BestMoves>) {
         // adding in iterative deepening?
         let mut searching = true;
         let mut best_move = Move::default();
         let mut best_score = i32::MIN;
         let mut best_moves = Vec::new();
-        let mut local_depth = 1;
 
         self.searching_side = board.side_to_move;
         self.nodes = 0;
@@ -151,12 +186,6 @@ impl SearchEngine {
             for generated_move in moves_for_current_depth.iter_mut() {
                 board.make_move(generated_move);
 
-                if board.has_positions_repeated() {
-                    generated_move.illegal_move = true;
-                    board.un_make_move(generated_move);
-                    continue;
-                }
-
                 // check not moving self into check
                 if evaluate::is_in_check(
                     board,
@@ -168,8 +197,14 @@ impl SearchEngine {
                     continue;
                 }
 
+                if board.has_positions_repeated() {
+                    generated_move.illegal_move = true;
+                    board.un_make_move(generated_move);
+                    continue;
+                }
+
                 generated_move.search_score =
-                    self.minimax(board, local_depth, true, i32::MIN, i32::MAX);
+                    self.minimax(board, self.current_depth, true, i32::MIN, i32::MAX);
 
                 board.un_make_move(generated_move);
             }
@@ -183,12 +218,8 @@ impl SearchEngine {
                 }
             }
 
-            if local_depth < self.depth
-                || (!(self.start.elapsed().as_millis()
-                    > self.get_allowed_time(self.searching_side))
-                    && self.use_time_management)
-            {
-                local_depth += 1;
+            if self.current_depth < self.depth || self.use_time_management {
+                self.current_depth += 1;
             } else {
                 searching = false;
             }
@@ -204,10 +235,11 @@ impl SearchEngine {
         }
 
         for generated_move in moves_for_current_depth.iter() {
-            // println!(
-            //     "move {:?}, score{}",
-            //     generated_move.from, generated_move.search_score,
-            // );
+            // print illegal infor
+            if generated_move.illegal_move {
+                println!("illegal move");
+            }
+
             if generated_move.search_score > best_score {
                 best_score = generated_move.search_score;
                 best_move = generated_move.clone();
@@ -227,16 +259,22 @@ impl SearchEngine {
         if depth == 0 {
             return 1;
         }
-        // println!("ply {} side {}", board.ply, board.side_to_move);
+
         let current_side = board.side_to_move;
 
         let currently_in_check = evaluate::is_in_check(board, current_side, None);
 
-        let moves_for_current_depth =
+        let mut moves_for_current_depth =
             movegen::generate_pseudo_legal_moves(board, board.side_to_move, currently_in_check);
 
-        for generated_move in moves_for_current_depth.iter() {
+        for generated_move in moves_for_current_depth.iter_mut() {
             board.make_move(generated_move);
+
+            if board.has_positions_repeated() {
+                generated_move.illegal_move = true;
+                board.un_make_move(generated_move);
+                continue;
+            }
 
             if evaluate::is_in_check(
                 board,

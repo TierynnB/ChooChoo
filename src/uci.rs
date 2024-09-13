@@ -31,6 +31,7 @@ pub enum CommandTypes {
     MakeUnMake,
     Bench,
     GetFen,
+    Hash,
     Empty,
     Invalid, //
     Quit,    //
@@ -66,6 +67,7 @@ impl CommunicationManager {
             "uci" => CommandTypes::Uci,
             "isready" => CommandTypes::IsReady,
             "position" => CommandTypes::Position,
+            "hash" => CommandTypes::Hash,
             "go" => CommandTypes::Go,
             "search" => CommandTypes::Search,
             "quit" => CommandTypes::Quit,
@@ -130,7 +132,13 @@ impl CommunicationManager {
     }
     pub fn evaluate(&self) {
         println!(
-            "{}",
+            "evaluate for {}: {}",
+            self.board.side_to_move,
+            evaluate::evaluate(&self.board, self.board.side_to_move) // self.board.get_running_evaluation()
+        );
+        println!(
+            "evaluate with negamax for {}: {}",
+            self.board.side_to_move,
             evaluate::evaluate(&self.board, self.board.side_to_move) // self.board.get_running_evaluation()
         );
     }
@@ -265,20 +273,27 @@ impl CommunicationManager {
                 "depth" => {
                     self.engine.depth = command_text_split.next().unwrap().parse::<i8>().unwrap();
                 }
+                "movetime" => {
+                    self.engine.movetime =
+                        command_text_split.next().unwrap().parse::<u128>().unwrap();
+                    self.engine.use_time_management = true;
+                }
+
                 _ => {}
             }
         }
         let moves = self.engine.search(&mut self.board);
-        let time_taken_micros = self.engine.start.elapsed().as_millis();
-        let time_taken_seconds = self.engine.start.elapsed().as_secs_f32();
-        println!("{}", moves.1.len());
-        println!(
-            "nodes: {}, time:{:?}, nodes per second: {}",
-            self.engine.nodes,
-            time_taken_micros,
-            self.engine.nodes as f32 / time_taken_seconds
-        );
 
+        let time_taken_seconds = self.engine.start.elapsed().as_secs_f32();
+
+        println!(
+            "info depth {} time {} nodes {} nps {} score cp {:.2}",
+            self.engine.current_depth,
+            self.engine.start.elapsed().as_millis(),
+            self.engine.nodes,
+            self.engine.nodes as f32 / time_taken_seconds,
+            moves.0.search_score,
+        );
         println!(
             "bestmove {}",
             conversion::convert_array_location_to_notation(
@@ -349,6 +364,18 @@ pub fn run() {
             CommandTypes::IsReady => println!("readyok"),
             CommandTypes::Go => manager.go(&buffer),
             CommandTypes::GetFen => println!("{}", manager.board.get_fen()),
+            CommandTypes::Hash => {
+                println!(
+                    "hash: {}, has repeated: {}",
+                    manager.board.hash_board_state(),
+                    manager.board.has_positions_repeated()
+                );
+
+                for hash in manager.board.hash_of_previous_positions.iter() {
+                    println!("hash: {}", hash);
+                }
+            }
+
             CommandTypes::Help => {
                 println!("{}", HELP);
                 println!("{}", CHOO_CHOO_TRAIN)

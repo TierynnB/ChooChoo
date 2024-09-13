@@ -1,9 +1,4 @@
-use crate::{
-    board::*,
-    constants::*,
-    //  conversion::*,
-    moves::*,
-};
+use crate::{board::*, constants::*, moves::*};
 use std::vec;
 
 pub fn get_pawn_attacks(
@@ -17,7 +12,7 @@ pub fn get_pawn_attacks(
     let (row, column) = square;
     let direction_of_pawns: isize = match side_to_generate_for {
         1 => -1,
-        2 => 1,
+        -1 => 1,
         _ => 0,
     };
     let pawn_attack_steps: [(isize, isize); 2] =
@@ -58,10 +53,14 @@ pub fn generate_pawn_moves(
     let mut blocked = false;
     let direction_of_pawns: i8 = match side_to_generate_for {
         1 => -1,
-        2 => 1,
+        -1 => 1,
         _ => 0,
     };
-    let _enemy_color = if side_to_generate_for == 1 { 2 } else { 1 };
+    let _enemy_color = if side_to_generate_for == WHITE {
+        BLACK
+    } else {
+        WHITE
+    };
 
     // know if double jump allowed if from starting row
     let starting_row = if side_to_generate_for == 1 { 6 } else { 1 };

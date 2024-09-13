@@ -1,5 +1,6 @@
 use crate::moves::Move;
 use crate::{constants::*, conversion::*, evaluate};
+use std::collections;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hasher;
 #[derive(Clone)]
@@ -49,8 +50,8 @@ impl Board {
         ];
 
         let colour_array = [
-            [2, 2, 2, 2, 2, 2, 2, 2],
-            [2, 2, 2, 2, 2, 2, 2, 2],
+            [-1, -1, -1, -1, -1, -1, -1, -1],
+            [-1, -1, -1, -1, -1, -1, -1, -1],
             [0, 0, 0, 0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0, 0, 0, 0],
@@ -94,10 +95,6 @@ impl Board {
     }
 
     pub fn get_fen(&self) -> String {
-        // TODO
-
-        // let mut fen = String::new();
-
         return "".to_string();
     }
     pub fn reset_board(&mut self) {
@@ -112,8 +109,8 @@ impl Board {
             [4, 2, 3, 5, 6, 3, 2, 4],
         ];
         self.colour_array = [
-            [2, 2, 2, 2, 2, 2, 2, 2],
-            [2, 2, 2, 2, 2, 2, 2, 2],
+            [-1, -1, -1, -1, -1, -1, -1, -1],
+            [-1, -1, -1, -1, -1, -1, -1, -1],
             [0, 0, 0, 0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0, 0, 0, 0],
@@ -278,14 +275,14 @@ impl Board {
             self.set_piece_and_colour(castle_from_to_square.0, EMPTY, EMPTY);
         }
 
-        self.add_hash_of_current_position();
-
         // set side to move to opposite
         self.side_to_move = if self.side_to_move == WHITE {
             BLACK
         } else {
             WHITE
         };
+
+        self.add_hash_of_current_position();
 
         self.ply += 1;
     }
@@ -305,11 +302,6 @@ impl Board {
         if move_to_do.from_colour == EMPTY {
             return Err("cannot move empty colour".to_string());
         }
-
-        println!(
-            "from: {:?},from piece: {:?}, to: {:?}, to piece: {}",
-            move_to_do.from, move_to_do.to, move_to_do.from_piece, move_to_do.to_piece
-        );
 
         self.make_move(&move_to_do);
         return Ok(move_to_do);
@@ -385,8 +377,23 @@ impl Board {
         }
         // add pawn back from en passant
     }
-
-    pub fn convert_notation_to_move(&self, mut chess_move: String) -> Result<Move, String> {
+    pub fn is_piece_type_on_board_for_side(&self, piece: i8, colour: i8) -> bool {
+        // go through each piece on the board, by colour to only get moves for side to move.
+        for (row_index, row) in self.board_array.iter().enumerate() {
+            for (column_index, piece_type) in row.iter().enumerate() {
+                if piece_type != &piece {
+                    continue;
+                }
+                let piece_colour = self.get_piece_colour((row_index, column_index));
+                if piece_colour != colour {
+                    continue;
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+    pub fn convert_notation_to_move(&self, chess_move: String) -> Result<Move, String> {
         let mut converted_move = Move::default();
 
         // convert "e1g1" "e1c1" "e8g8" "e8c8" into O-O or O-O-O
@@ -395,35 +402,19 @@ impl Board {
             || ((chess_move == "e8g8" && self.can_castle_h8)
                 || (chess_move == "e8c8" && self.can_castle_h1))
         {
-            chess_move = match chess_move.as_str() {
-                "e1g1" => "O-O".to_string(),
-                "e1c1" => "O-O-O".to_string(),
-                "e8g8" => "O-O".to_string(),
-                "e8c8" => "O-O-O".to_string(),
-                _ => return Err("Invalid castling move".to_string()),
-            };
-        }
-
-        // castling is a special case
-        if ((self.side_to_move == WHITE && self.can_castle_a1 && self.can_castle_h1)
-            || (self.side_to_move == BLACK && self.can_castle_a8 && self.can_castle_h8))
-            && (chess_move == "O-O" || chess_move == "O-O-O")
-        {
+            // chess_move = match chess_move.as_str() {
+            //     "e1g1" => "O-O".to_string(),
+            //     "e1c1" => "O-O-O".to_string(),
+            //     "e8g8" => "O-O".to_string(),
+            //     "e8c8" => "O-O-O".to_string(),
+            //     _ => return Err("Invalid castling move".to_string()),
+            // };
+            // castling is a special case
             let from_to_squares = match chess_move.as_str() {
-                "O-O" => {
-                    if self.side_to_move == WHITE {
-                        ((7, 4), (7, 6), (7, 7), (7, 5))
-                    } else {
-                        ((0, 4), (0, 6), (0, 7), (0, 5))
-                    }
-                }
-                "O-O-O" => {
-                    if self.side_to_move == WHITE {
-                        ((7, 4), (7, 2), (7, 0), (7, 3))
-                    } else {
-                        ((0, 4), (0, 2), (0, 9), (0, 3))
-                    }
-                }
+                "e1g1" => ((7, 4), (7, 6), (7, 7), (7, 5)),
+                "e8g8" => ((0, 4), (0, 6), (0, 7), (0, 5)),
+                "e1c1" => ((7, 4), (7, 2), (7, 0), (7, 3)),
+                "e8c8" => ((0, 4), (0, 2), (0, 9), (0, 3)),
                 _ => return Err("Invalid castling move".to_string()),
             };
             // depends on side to move where piece is
@@ -434,8 +425,6 @@ impl Board {
                 to: from_to_squares.1,
                 to_piece: EMPTY,
                 to_colour: EMPTY,
-
-                // notation_move: chess_move.clone(),
                 promotion_to: None,
                 en_passant: false,
                 castle_from_to_square: Some((from_to_squares.2, from_to_squares.3)),
@@ -585,22 +574,26 @@ impl Board {
 
         return if count >= 3 { true } else { false };
     }
-    pub fn get_king_location(&self, side: i8) -> (usize, usize) {
+    pub fn get_king_location(&self, side: i8) -> Option<(usize, usize)> {
         // find king for side
         // go through each piece on the board, by colour to only get moves for side to move.
         for (row_index, row) in self.board_array.iter().enumerate() {
             for (column_index, piece) in row.iter().enumerate() {
+                if *piece != KING {
+                    continue;
+                }
+
                 let location = (row_index, column_index);
                 let square_colour = &self.get_piece_colour((row_index, column_index));
 
-                if square_colour != &side || *piece != KING {
+                if square_colour != &side {
                     continue;
                 }
-                return location;
+                return Some(location);
             }
         }
 
-        panic!("King not found!");
+        return None;
     }
 }
 pub fn print_board(board: &Board) {
@@ -646,7 +639,7 @@ pub fn print_board(board: &Board) {
             }
             let colour = match square {
                 1 => "W",
-                2 => "B",
+                -1 => "B",
                 0 => " ",
                 _ => " ",
             };
