@@ -136,8 +136,8 @@ impl SearchEngine {
         }
     }
 
-    pub fn negamax(&mut self, board: &mut Board, depth: i8, mut alpha: i32, mut beta: i32) -> i32 {
-        let mut max_eval = i32::MIN;
+    pub fn alpha_beta(&mut self, board: &mut Board, depth: i8, mut alpha: i32, beta: i32) -> i32 {
+        let mut best_value = i32::MIN;
         if depth == 0 {
             self.nodes += 1;
             return evaluate::evaluate(&board, self.searching_side);
@@ -150,16 +150,19 @@ impl SearchEngine {
 
         for generated_move in moves_for_current_depth.iter() {
             board.make_move(generated_move);
-            let eval = -self.negamax(board, depth - 1, alpha, beta);
+
+            // negative alpha becomes the beta of the other player
+            let eval = -self.alpha_beta(board, depth - 1, -beta, -alpha);
             board.un_make_move(generated_move);
 
-            max_eval = std::cmp::max(max_eval, eval);
+            best_value = std::cmp::max(best_value, eval);
             alpha = std::cmp::max(alpha, eval);
-            if beta <= alpha {
-                break;
+
+            if eval >= beta {
+                return best_value;
             }
         }
-        return max_eval;
+        return best_value;
     }
 
     pub fn search(&mut self, board: &mut Board) -> (Move, Vec<BestMoves>) {
@@ -172,7 +175,6 @@ impl SearchEngine {
         self.searching_side = board.side_to_move;
         self.nodes = 0;
         self.start = Instant::now();
-
         let current_side = board.side_to_move;
 
         let currently_in_check = evaluate::is_in_check(board, current_side, None);
@@ -187,25 +189,27 @@ impl SearchEngine {
                 board.make_move(generated_move);
 
                 // check not moving self into check
-                if evaluate::is_in_check(
-                    board,
-                    current_side,
-                    generated_move.castling_intermediary_square,
-                ) {
+                if self.current_depth == 1
+                    && evaluate::is_in_check(
+                        board,
+                        current_side,
+                        generated_move.castling_intermediary_square,
+                    )
+                {
                     generated_move.illegal_move = true;
                     board.un_make_move(generated_move);
                     continue;
                 }
 
-                if board.has_positions_repeated() {
+                if self.current_depth == 1 && board.has_positions_repeated() {
                     generated_move.illegal_move = true;
                     board.un_make_move(generated_move);
                     continue;
                 }
 
                 generated_move.search_score =
-                    self.minimax(board, self.current_depth, true, i32::MIN, i32::MAX);
-
+                    // self.minimax(board, self.current_depth, true, i32::MIN + 1, i32::MAX);
+                self.alpha_beta(board, self.current_depth, i32::MIN + 1, i32::MAX );
                 board.un_make_move(generated_move);
             }
 

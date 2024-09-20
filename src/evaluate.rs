@@ -1,7 +1,5 @@
-use core::num;
-
 use crate::board::Board;
-use crate::{constants::*, conversion, movegen::*};
+use crate::{constants::*, movegen::*};
 #[derive(Debug, Clone, Copy)]
 pub struct PieceValues {
     pub pawn: i32,
@@ -32,49 +30,30 @@ pub fn is_endgame(board: &Board) -> bool {
 }
 pub fn evaluate(board: &Board, searching_side: i8) -> i32 {
     let mut score: i32 = 0;
-    if board.get_king_location(searching_side).is_none() {
-        return i32::MIN / 2 + board.ply;
-    }
-    let opponent = if searching_side == WHITE {
-        BLACK
-    } else {
-        WHITE
-    };
-    if board.get_king_location(opponent).is_none() {
-        return i32::MAX / 2 - board.ply;
-    }
-
-    score -= get_safety_score(
-        board,
-        board.get_king_location(searching_side).unwrap(),
-        searching_side,
-    );
 
     for (external_row_index, row) in board.colour_array.iter().enumerate() {
         for (external_column_index, colour) in row.iter().enumerate() {
             let square = board.get_piece((external_row_index, external_column_index));
-            let mut is_protected = false;
-            let mut is_attacked = false;
 
             if square == EMPTY {
                 continue;
             }
 
-            let mut score_for_piece_type = if is_endgame(board) {
-                conversion::get_piece_square_value_eg(
-                    (external_row_index, external_column_index),
-                    square,
-                    *colour,
-                )
-            } else {
-                conversion::get_piece_square_value_mg(
-                    (external_row_index, external_column_index),
-                    square,
-                    *colour,
-                )
-            };
+            // let mut score_for_piece_type = if is_endgame(board) {
+            //     conversion::get_piece_square_value_eg(
+            //         (external_row_index, external_column_index),
+            //         square,
+            //         *colour,
+            //     )
+            // } else {
+            //     conversion::get_piece_square_value_mg(
+            //         (external_row_index, external_column_index),
+            //         square,
+            //         *colour,
+            //     )
+            // };
 
-            score_for_piece_type += match square {
+            let mut score_for_piece_type = match square {
                 PAWN => PIECE_VALUES.pawn,
                 KNIGHT => PIECE_VALUES.knight,
                 BISHOP => PIECE_VALUES.bishop,
@@ -84,51 +63,9 @@ pub fn evaluate(board: &Board, searching_side: i8) -> i32 {
                 _ => 0,
             };
 
-            if square == KING && is_in_check(board, *colour, None) {
-                score_for_piece_type = PIECE_VALUES.king / 2;
-            }
-
-            for (row_index, row) in board.colour_array.iter().enumerate() {
-                for (column_index, square_colour) in row.iter().enumerate() {
-                    let piece_type = board.get_piece((row_index, column_index));
-
-                    if (row_index, column_index) == (external_row_index, external_column_index) {
-                        continue;
-                    }
-                    // for each piece check if its hung or not
-                    let enemy_colour = if *colour == WHITE { BLACK } else { WHITE };
-
-                    if !is_protected {
-                        is_protected = is_attacked_by_piece_from_square(
-                            board,
-                            (row_index, column_index),
-                            piece_type,
-                            (external_row_index, external_column_index),
-                            *square_colour,
-                        );
-                    }
-                    if !is_attacked {
-                        is_attacked = is_attacked_by_piece_from_square(
-                            board,
-                            (row_index, column_index),
-                            piece_type,
-                            (external_row_index, external_column_index),
-                            enemy_colour,
-                        );
-                    }
-                    if is_protected && is_attacked {
-                        break;
-                    }
-                }
-                if is_protected && is_attacked {
-                    break;
-                }
-            }
-
-            // if not protected, half the piece value.
-            if !is_protected || is_attacked {
-                score_for_piece_type = (score_for_piece_type as f64 * 0.5) as i32;
-            }
+            // if square == KING && is_in_check(board, *colour, None) {
+            //     score_for_piece_type = PIECE_VALUES.king / 2;
+            // }
 
             if colour != &searching_side {
                 score_for_piece_type *= -1;
@@ -136,16 +73,16 @@ pub fn evaluate(board: &Board, searching_side: i8) -> i32 {
             score += score_for_piece_type as i32;
         }
     }
-
     return score;
-    // count and addup pieces.
 }
+
 pub fn is_in_check(
     board: &Board,
     side_to_check: i8,
     aditional_square_to_check: Option<(usize, usize)>,
 ) -> bool {
     let opponent_colour = if side_to_check == WHITE { BLACK } else { WHITE };
+
     let king_location = board.get_king_location(side_to_check);
 
     for (row_index, row) in board.colour_array.iter().enumerate() {

@@ -1,3 +1,5 @@
+use crate::constants::EMPTY;
+
 #[derive(Clone, Debug)]
 pub struct Move {
     pub from: (usize, usize),
@@ -19,11 +21,11 @@ impl Default for Move {
         // return a default instance of Move
         return Move {
             from: (0, 0),
-            from_piece: 0,
-            from_colour: 0,
+            from_piece: EMPTY,
+            from_colour: EMPTY,
             to: (0, 0),
-            to_piece: 0,
-            to_colour: 0,
+            to_piece: EMPTY,
+            to_colour: EMPTY,
             promotion_to: None,
             en_passant: false,
             castle_from_to_square: None,

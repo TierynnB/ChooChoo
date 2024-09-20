@@ -2,7 +2,7 @@ use crate::board::Board;
 use crate::constants;
 use crate::constants::BLACK;
 use crate::constants::WHITE;
-use crate::evaluate;
+
 use crate::moves::*;
 // use crate::evaluate;
 pub fn convert_fen_to_board(fen: &str) -> Board {
@@ -26,9 +26,9 @@ pub fn convert_fen_to_board(fen: &str) -> Board {
         match index {
             0 => {
                 let mut current_row = 0;
-                for (_char_index, characters) in section.split('/').enumerate() {
+                for characters in section.split('/') {
                     let mut current_column = 0;
-                    for (_char_index, character) in characters.chars().enumerate() {
+                    for character in characters.chars() {
                         if current_column > 7 {
                             break;
                         }

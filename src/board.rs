@@ -1,6 +1,6 @@
 use crate::moves::Move;
 use crate::{constants::*, conversion::*, evaluate};
-use std::collections;
+
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hasher;
 #[derive(Clone)]
@@ -402,13 +402,6 @@ impl Board {
             || ((chess_move == "e8g8" && self.can_castle_h8)
                 || (chess_move == "e8c8" && self.can_castle_h1))
         {
-            // chess_move = match chess_move.as_str() {
-            //     "e1g1" => "O-O".to_string(),
-            //     "e1c1" => "O-O-O".to_string(),
-            //     "e8g8" => "O-O".to_string(),
-            //     "e8c8" => "O-O-O".to_string(),
-            //     _ => return Err("Invalid castling move".to_string()),
-            // };
             // castling is a special case
             let from_to_squares = match chess_move.as_str() {
                 "e1g1" => ((7, 4), (7, 6), (7, 7), (7, 5)),
@@ -423,15 +416,8 @@ impl Board {
                 from_piece: KING,
                 from_colour: self.side_to_move,
                 to: from_to_squares.1,
-                to_piece: EMPTY,
-                to_colour: EMPTY,
-                promotion_to: None,
-                en_passant: false,
                 castle_from_to_square: Some((from_to_squares.2, from_to_squares.3)),
-                castling_intermediary_square: None,
-                sort_score: 0,
-                search_score: 0,
-                illegal_move: false,
+                ..Move::default()
             });
         }
 
