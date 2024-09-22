@@ -5,6 +5,12 @@ use crate::evaluate;
 use crate::movegen;
 use crate::moves::*;
 use std::time::Instant;
+
+pub struct TranspositionTableEntry {
+    pub position_hash: u64,
+    pub depth_distance: i8,
+    pub position_terminal_score: i32,
+}
 pub struct MoveNode {
     pub move_notation: String,
     pub nodes: i128,
@@ -27,13 +33,14 @@ pub struct SearchEngine {
     pub use_time_management: bool,
     pub searching_side: i8,
     pub move_overhead: u128,
+    pub transposition_table: Vec<TranspositionTableEntry>,
 }
 
 pub fn order_moves(moves: &mut Vec<Move>) {
     for i in 0..moves.len() {
         let move_to_score = moves.get_mut(i).unwrap();
         let value = MVV_LVA[move_to_score.to_piece as usize][move_to_score.from_piece as usize];
-        // println!("{} {}", move_to_score.notation_move, value);
+
         move_to_score.sort_score += value;
     }
 
@@ -55,7 +62,39 @@ impl SearchEngine {
             btime: 0,
             use_time_management: false,
             searching_side: WHITE,
+            transposition_table: Vec::new(),
         }
+    }
+    fn clear_tt(&mut self) {
+        self.transposition_table = Vec::new();
+    }
+    fn delete_tt_pos_for_hash(&mut self, position_hash: u64) {
+        self.transposition_table
+            .retain(|entry| entry.position_hash != position_hash);
+    }
+    fn add_position_to_tt(
+        &mut self,
+        position_hash: u64,
+        position_terminal_score: i32,
+        depth_distance: i8,
+    ) {
+        self.transposition_table.push(TranspositionTableEntry {
+            position_hash,
+            position_terminal_score,
+            depth_distance: depth_distance,
+        });
+    }
+    fn get_position_from_tt(
+        &self,
+        position_hash: u64,
+        depth_distance: i8,
+    ) -> Option<&TranspositionTableEntry> {
+        for entry in self.transposition_table.iter() {
+            if entry.position_hash == position_hash {
+                return Some(entry);
+            }
+        }
+        return None;
     }
     pub fn get_allowed_time(&self, side: i8) -> u128 {
         if self.use_time_management {
@@ -70,7 +109,7 @@ impl SearchEngine {
             };
 
             let increment = if side == WHITE { self.winc } else { self.binc };
-            println!("{} {}", self.move_overhead, increment);
+            // println!("{} {}", self.move_overhead, increment);
             return (time_left / 30 + increment - 2 * self.move_overhead) as u128;
         } else {
             return 10000;
@@ -88,20 +127,15 @@ impl SearchEngine {
         if depth == 0 {
             self.nodes += 1;
 
-            return evaluate::evaluate(&board, self.searching_side);
+            return evaluate::evaluate(&board);
         };
-
-        if self.use_time_management {
-            if self.start.elapsed().as_millis() > self.get_allowed_time(self.searching_side) {
-                return evaluate::evaluate(&board, self.searching_side);
-            }
-        }
 
         // generate moves for current depth of board
         let mut moves_for_current_depth =
             movegen::generate_pseudo_legal_moves(board, board.side_to_move, false);
 
         order_moves(&mut moves_for_current_depth);
+
         if maximizing_player {
             let mut max_eval = i32::MIN;
             for generated_move in moves_for_current_depth.iter() {
@@ -135,13 +169,17 @@ impl SearchEngine {
             return min_eval;
         }
     }
-
+    fn queiscence_search(board: &mut Board) {}
     pub fn alpha_beta(&mut self, board: &mut Board, depth: i8, mut alpha: i32, beta: i32) -> i32 {
         let mut best_value = i32::MIN;
         if depth == 0 {
             self.nodes += 1;
-            return evaluate::evaluate(&board, self.searching_side);
+            return evaluate::evaluate(&board);
         };
+
+        if let Some(entry) = self.get_position_from_tt(conversion::hash_board_state(board), depth) {
+            return entry.position_terminal_score;
+        }
 
         let mut moves_for_current_depth =
             movegen::generate_pseudo_legal_moves(board, board.side_to_move, false);
@@ -153,6 +191,13 @@ impl SearchEngine {
 
             // negative alpha becomes the beta of the other player
             let eval = -self.alpha_beta(board, depth - 1, -beta, -alpha);
+
+            // let position_hash = conversion::hash_board_state(board);
+            // if self.get_position_from_tt(position_hash, depth).is_none() {
+            //     self.delete_tt_pos_for_hash(position_hash);
+            //     self.add_position_to_tt(conversion::hash_board_state(board), eval, depth);
+            // }
+
             board.un_make_move(generated_move);
 
             best_value = std::cmp::max(best_value, eval);
@@ -172,6 +217,7 @@ impl SearchEngine {
         let mut best_score = i32::MIN;
         let mut best_moves = Vec::new();
 
+        self.clear_tt();
         self.searching_side = board.side_to_move;
         self.nodes = 0;
         self.start = Instant::now();
@@ -186,43 +232,58 @@ impl SearchEngine {
 
         while searching {
             for generated_move in moves_for_current_depth.iter_mut() {
+                if generated_move.illegal_move {
+                    continue;
+                }
                 board.make_move(generated_move);
 
                 // check not moving self into check
-                if self.current_depth == 1
-                    && evaluate::is_in_check(
-                        board,
-                        current_side,
-                        generated_move.castling_intermediary_square,
-                    )
-                {
+                if evaluate::is_in_check(
+                    board,
+                    current_side,
+                    generated_move.castling_intermediary_square,
+                ) {
                     generated_move.illegal_move = true;
                     board.un_make_move(generated_move);
                     continue;
                 }
 
-                if self.current_depth == 1 && board.has_positions_repeated() {
+                if board.has_positions_repeated() {
                     generated_move.illegal_move = true;
                     board.un_make_move(generated_move);
                     continue;
                 }
+                // let position_hash = conversion::hash_board_state_for_tt(board);
+                // match self.get_position_from_tt(position_hash) {
+                //     Some(entry) => {
+                //         generated_move.search_score = entry.position_terminal_score;
+                //     }
+                //     None => {
 
+                //         self.add_position_to_tt(position_hash, generated_move.search_score);
+                //     }
+                // }
                 generated_move.search_score =
-                    // self.minimax(board, self.current_depth, true, i32::MIN + 1, i32::MAX);
-                self.alpha_beta(board, self.current_depth, i32::MIN + 1, i32::MAX );
+                    -self.alpha_beta(board, self.current_depth, i32::MIN + 1, i32::MAX);
                 board.un_make_move(generated_move);
+
+                if self.use_time_management {
+                    if self.start.elapsed().as_millis() > self.get_allowed_time(self.searching_side)
+                    {
+                        searching = false;
+                        break;
+                    }
+                }
             }
 
-            moves_for_current_depth.retain(|m| !m.illegal_move);
-
-            if self.use_time_management {
+            if searching && self.use_time_management {
                 if self.start.elapsed().as_millis() > self.get_allowed_time(self.searching_side) {
                     println!("time limit reached");
                     searching = false;
                 }
             }
 
-            if self.current_depth < self.depth || self.use_time_management {
+            if searching && (self.current_depth < self.depth || self.use_time_management) {
                 self.current_depth += 1;
             } else {
                 searching = false;
@@ -239,9 +300,15 @@ impl SearchEngine {
         }
 
         for generated_move in moves_for_current_depth.iter() {
-            // print illegal infor
+            // println!(
+            //     "{} {} {} {}",
+            //     conversion::convert_move_to_notation(generated_move),
+            //     generated_move.search_score,
+            //     generated_move.sort_score,
+            //     generated_move.illegal_move
+            // );
             if generated_move.illegal_move {
-                println!("illegal move");
+                continue;
             }
 
             if generated_move.search_score > best_score {

@@ -1,7 +1,10 @@
+use crate::board;
 use crate::board::Board;
 use crate::constants;
 use crate::constants::BLACK;
 use crate::constants::WHITE;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::Hasher;
 
 use crate::moves::*;
 // use crate::evaluate;
@@ -264,4 +267,42 @@ pub fn convert_board_to_fen(_board: &Board) -> String {
     // then add the halfmove clock (h3) - how many halfmoves since the last capture or pawn advancement
 
     return fen_string;
+}
+
+pub fn hash_board_state(board: &Board) -> u64 {
+    // take board state and generate a hash to use to compare uniqueness of position
+
+    let mut hasher = DefaultHasher::new();
+    for row in board.board_array.iter() {
+        for square in row.iter() {
+            hasher.write_i8(*square);
+        }
+    }
+    for row in board.colour_array.iter() {
+        for square in row.iter() {
+            hasher.write_i8(*square);
+        }
+    }
+
+    hasher.write_i8(board.side_to_move);
+
+    // return format!("{:x}", hasher.finish());
+    return hasher.finish();
+}
+pub fn hash_board_state_for_tt(board: &Board) -> u64 {
+    // take board state and generate a hash to use to compare uniqueness of position
+
+    let mut hasher = DefaultHasher::new();
+    for row in board.board_array.iter() {
+        for square in row.iter() {
+            hasher.write_i8(*square);
+        }
+    }
+    for row in board.colour_array.iter() {
+        for square in row.iter() {
+            hasher.write_i8(*square);
+        }
+    }
+
+    return hasher.finish();
 }

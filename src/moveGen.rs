@@ -51,7 +51,6 @@ pub fn generate_pawn_moves(
 ) -> Vec<Move> {
     let mut moves: Vec<Move> = vec![];
     let mut blocked = false;
-    let default_move = Move::default();
     let direction_of_pawns: i8 = match side_to_generate_for {
         1 => -1,
         -1 => 1,

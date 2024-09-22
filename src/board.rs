@@ -1,8 +1,6 @@
 use crate::moves::Move;
-use crate::{constants::*, conversion::*, evaluate};
+use crate::{constants::*, conversion, evaluate};
 
-use std::collections::hash_map::DefaultHasher;
-use std::hash::Hasher;
 #[derive(Clone)]
 pub struct PlyData {
     pub ply: i32,
@@ -29,7 +27,7 @@ pub struct Board {
     pub en_passant_location: Option<(usize, usize)>,
     pub ply: i32,
     pub side_to_move: i8,
-    pub hash_of_previous_positions: Vec<String>,
+    pub hash_of_previous_positions: Vec<u64>,
     pub ply_record: Vec<PlyData>,
     pub player_colour: i8,
     pub move_list: Vec<Move>,
@@ -141,7 +139,7 @@ impl Board {
 
     fn add_hash_of_current_position(&mut self) {
         self.hash_of_previous_positions
-            .push(self.hash_board_state());
+            .push(conversion::hash_board_state(self));
     }
 
     pub fn clear_board(&mut self) {
@@ -524,32 +522,32 @@ impl Board {
     }
 
     pub fn is_square_empty(&self, square: &str) -> bool {
-        let coordinates = convert_notation_to_location(square).unwrap_or((0, 0));
+        let coordinates = conversion::convert_notation_to_location(square).unwrap_or((0, 0));
 
         return self.get_piece(coordinates) == EMPTY;
     }
-    pub fn hash_board_state(&self) -> String {
-        // take board state and generate a hash to use to compare uniqueness of position
+    // pub fn hash_board_state(&self) -> String {
+    //     // take board state and generate a hash to use to compare uniqueness of position
 
-        let mut hasher = DefaultHasher::new();
-        for row in self.board_array.iter() {
-            for square in row.iter() {
-                hasher.write_i8(*square);
-            }
-        }
-        for row in self.colour_array.iter() {
-            for square in row.iter() {
-                hasher.write_i8(*square);
-            }
-        }
+    //     let mut hasher = DefaultHasher::new();
+    //     for row in self.board_array.iter() {
+    //         for square in row.iter() {
+    //             hasher.write_i8(*square);
+    //         }
+    //     }
+    //     for row in self.colour_array.iter() {
+    //         for square in row.iter() {
+    //             hasher.write_i8(*square);
+    //         }
+    //     }
 
-        hasher.write_i8(self.side_to_move);
+    //     hasher.write_i8(self.side_to_move);
 
-        return format!("{:x}", hasher.finish());
-    }
+    //     return format!("{:x}", hasher.finish());
+    // }
     pub fn has_positions_repeated(&self) -> bool {
         // check if current hash appears two or more times in the history
-        let current_hash = self.hash_board_state();
+        let current_hash = conversion::hash_board_state(self);
 
         //search history for this hash
         let count = self
@@ -586,9 +584,7 @@ pub fn print_board(board: &Board) {
     let mut row_string = String::new();
 
     for (row_index, row) in board.colour_array.iter().enumerate() {
-        // println!("{:?}", row);
         for (column_index, _colour) in row.iter().enumerate() {
-            // let location = (row_index, column_index);
             let square = board.get_piece((row_index, column_index));
 
             let piece_type = match square {
@@ -614,15 +610,14 @@ pub fn print_board(board: &Board) {
         row_string.clear();
     }
     println!(" ");
+
     // print colour board
     for (row_index, row) in board.colour_array.iter().enumerate() {
         // println!("{:?}", row);
         for (column_index, _colour) in row.iter().enumerate() {
             // let location = (row_index, column_index);
             let square = board.colour_array[row_index][column_index];
-            if square == -1 {
-                continue;
-            }
+
             let colour = match square {
                 1 => "W",
                 -1 => "B",

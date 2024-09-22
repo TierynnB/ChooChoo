@@ -1,5 +1,5 @@
 use crate::board::Board;
-use crate::{constants::*, movegen::*};
+use crate::{constants::*, conversion, movegen::*};
 #[derive(Debug, Clone, Copy)]
 pub struct PieceValues {
     pub pawn: i32,
@@ -19,39 +19,23 @@ pub const PIECE_VALUES: PieceValues = PieceValues {
     king: 20000,
 };
 pub fn is_endgame(board: &Board) -> bool {
-    // if no queens
-    if !board.is_piece_type_on_board_for_side(QUEEN, WHITE)
-        && !board.is_piece_type_on_board_for_side(QUEEN, BLACK)
-    {
+    // add presence of queens tot he board and ply data.
+    if board.ply > 50 {
         return true;
     }
     // if if only queen on either side
     return false;
 }
-pub fn evaluate(board: &Board, searching_side: i8) -> i32 {
+pub fn evaluate(board: &Board) -> i32 {
     let mut score: i32 = 0;
 
-    for (external_row_index, row) in board.colour_array.iter().enumerate() {
-        for (external_column_index, colour) in row.iter().enumerate() {
-            let square = board.get_piece((external_row_index, external_column_index));
+    for (row_index, row) in board.colour_array.iter().enumerate() {
+        for (column_index, colour) in row.iter().enumerate() {
+            let square = board.get_piece((row_index, column_index));
 
             if square == EMPTY {
                 continue;
             }
-
-            // let mut score_for_piece_type = if is_endgame(board) {
-            //     conversion::get_piece_square_value_eg(
-            //         (external_row_index, external_column_index),
-            //         square,
-            //         *colour,
-            //     )
-            // } else {
-            //     conversion::get_piece_square_value_mg(
-            //         (external_row_index, external_column_index),
-            //         square,
-            //         *colour,
-            //     )
-            // };
 
             let mut score_for_piece_type = match square {
                 PAWN => PIECE_VALUES.pawn,
@@ -63,11 +47,13 @@ pub fn evaluate(board: &Board, searching_side: i8) -> i32 {
                 _ => 0,
             };
 
-            // if square == KING && is_in_check(board, *colour, None) {
-            //     score_for_piece_type = PIECE_VALUES.king / 2;
-            // }
+            score_for_piece_type += if is_endgame(board) {
+                conversion::get_piece_square_value_eg((row_index, column_index), square, *colour)
+            } else {
+                conversion::get_piece_square_value_mg((row_index, column_index), square, *colour)
+            };
 
-            if colour != &searching_side {
+            if colour != &board.side_to_move {
                 score_for_piece_type *= -1;
             }
             score += score_for_piece_type as i32;
@@ -299,7 +285,7 @@ mod tests {
             "rnbqkbnr/8/8/pppppppp/PPPPPPPP/8/8/RNBQKBNR w KQkq a6 0 9",
         );
 
-        let eval = evaluate::evaluate(&board, 1);
+        let eval = evaluate::evaluate(&board);
         assert!(eval == 0, "Not around 0 eval");
     }
     #[test]
@@ -308,7 +294,7 @@ mod tests {
             "2b2N1k/1p5P/1P2p2P/4Pp2/4pP2/1p2P2p/1P5p/2B2n1K w - - 0 1",
         );
 
-        let eval = evaluate::evaluate(&board, 1);
+        let eval = evaluate::evaluate(&board);
         assert!(eval == 0, "Not around 0 eval");
     }
     #[test]
@@ -317,15 +303,15 @@ mod tests {
             "b1nr1k1n/pp1Bp1p1/8/2p5/2P5/8/PP1bP1P1/B1NR1K1N w Qq - 0 7",
         );
 
-        let eval = evaluate::evaluate(&board, 1);
+        let eval = evaluate::evaluate(&board);
         assert!(eval == 0, "Not around 0 eval");
     }
     #[test]
     fn evaluate_white_1() {
         let board = conversion::convert_fen_to_board("Q1k5/8/1K6/8/8/5B2/8/8 b - - 0 64");
 
-        let eval = evaluate::evaluate(&board, 1);
-        assert!(eval > 100, "position does not favour white!");
+        let eval = evaluate::evaluate(&board);
+        assert!(eval < -100, "position favours white!");
     }
 
     #[test]
@@ -333,14 +319,14 @@ mod tests {
         let board =
             conversion::convert_fen_to_board("5k2/5p2/4pQp1/4P1Np/7P/6P1/4qP1K/8 b - - 10 41");
 
-        let eval = evaluate::evaluate(&board, 1);
+        let eval = evaluate::evaluate(&board);
         assert!(eval > 100, "position does not favour white!");
     }
     #[test]
     fn evaluate_black_1() {
         let board = conversion::convert_fen_to_board("1k6/7p/4q3/3n4/3K4/2q5/7P/8 w - - 2 50");
 
-        let eval = evaluate::evaluate(&board, 2);
+        let eval = evaluate::evaluate(&board);
         assert!(eval > 100, "position does not favour black!");
     }
 

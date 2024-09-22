@@ -132,14 +132,9 @@ impl CommunicationManager {
     }
     pub fn evaluate(&self) {
         println!(
-            "evaluate for {}: {}",
-            self.board.side_to_move,
-            evaluate::evaluate(&self.board, self.board.side_to_move) // self.board.get_running_evaluation()
-        );
-        println!(
             "evaluate with negamax for {}: {}",
             self.board.side_to_move,
-            evaluate::evaluate(&self.board, self.board.side_to_move) // self.board.get_running_evaluation()
+            evaluate::evaluate(&self.board) // self.board.get_running_evaluation()
         );
     }
 
@@ -367,7 +362,7 @@ pub fn run() {
             CommandTypes::Hash => {
                 println!(
                     "hash: {}, has repeated: {}",
-                    manager.board.hash_board_state(),
+                    conversion::hash_board_state(&manager.board),
                     manager.board.has_positions_repeated()
                 );
 
