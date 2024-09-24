@@ -2,6 +2,7 @@ use crate::board::Board;
 use crate::constants::*;
 use crate::conversion;
 use crate::evaluate;
+use crate::evaluate::evaluate;
 use crate::movegen;
 use crate::moves::*;
 use std::time::Instant;
@@ -84,11 +85,7 @@ impl SearchEngine {
             depth_distance: depth_distance,
         });
     }
-    fn get_position_from_tt(
-        &self,
-        position_hash: u64,
-        depth_distance: i8,
-    ) -> Option<&TranspositionTableEntry> {
+    fn get_position_from_tt(&self, position_hash: u64) -> Option<&TranspositionTableEntry> {
         for entry in self.transposition_table.iter() {
             if entry.position_hash == position_hash {
                 return Some(entry);
@@ -169,15 +166,62 @@ impl SearchEngine {
             return min_eval;
         }
     }
-    fn queiscence_search(board: &mut Board) {}
+    pub fn quiescence_search(&mut self, board: &mut Board, mut alpha: i32, beta: i32) -> i32 {
+        // if in check, return.
+        // if evaluate::is_in_check(board, board.side_to_move, None) {
+        //     return evaluate(board);
+        // }
+
+        // if evaluate::is_in_check(board, board.side_to_move * -1, None) {
+        //     return evaluate(board);
+        // }
+        // searches the captures available
+        let stand_pat = evaluate(board);
+        if stand_pat >= beta {
+            return beta;
+        }
+        if alpha < stand_pat {
+            alpha = stand_pat;
+        }
+
+        // generate moves for current depth of board
+        let mut moves_for_current_depth =
+            movegen::generate_pseudo_legal_moves(board, board.side_to_move, false);
+
+        order_moves(&mut moves_for_current_depth);
+
+        for generated_move in moves_for_current_depth.iter() {
+            if generated_move.to_piece == EMPTY {
+                continue;
+            }
+            if generated_move.to_piece == KING {
+                return alpha;
+            }
+
+            board.make_move(generated_move);
+            let score = -self.quiescence_search(board, -beta, -alpha);
+            board.un_make_move(generated_move);
+
+            if score >= beta {
+                return beta;
+            }
+
+            if score > alpha {
+                alpha = score;
+            }
+        }
+
+        return alpha;
+    }
     pub fn alpha_beta(&mut self, board: &mut Board, depth: i8, mut alpha: i32, beta: i32) -> i32 {
         let mut best_value = i32::MIN;
         if depth == 0 {
             self.nodes += 1;
-            return evaluate::evaluate(&board);
+            return self.quiescence_search(board, alpha, beta); //
+                                                               // return evaluate::evaluate(&board);
         };
 
-        if let Some(entry) = self.get_position_from_tt(conversion::hash_board_state(board), depth) {
+        if let Some(entry) = self.get_position_from_tt(conversion::hash_board_state(board)) {
             return entry.position_terminal_score;
         }
 
@@ -189,7 +233,6 @@ impl SearchEngine {
         for generated_move in moves_for_current_depth.iter() {
             board.make_move(generated_move);
 
-            // negative alpha becomes the beta of the other player
             let eval = -self.alpha_beta(board, depth - 1, -beta, -alpha);
 
             // let position_hash = conversion::hash_board_state(board);
