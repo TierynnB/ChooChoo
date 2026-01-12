@@ -266,7 +266,8 @@ impl CommunicationManager {
                     self.engine.depth = command_text_split.next().unwrap().parse::<i8>().unwrap();
                 }
                 "depth" => {
-                    self.engine.depth = command_text_split.next().unwrap().parse::<i8>().unwrap();
+                    self.engine
+                        .set_depth(command_text_split.next().unwrap().parse::<i8>().unwrap());
                 }
                 "movetime" => {
                     self.engine.movetime =
@@ -280,7 +281,7 @@ impl CommunicationManager {
         let moves = self.engine.search(&mut self.board);
 
         let time_taken_seconds = self.engine.start.elapsed().as_secs_f32();
-
+        println!("max move list length: {}", self.engine.max_size_move_nodes);
         println!(
             "info depth {} time {} nodes {} nps {} score cp {:.2}",
             self.engine.current_depth,

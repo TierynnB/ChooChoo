@@ -18,7 +18,7 @@ pub fn bench() {
         time_taken_micros += engine.start.elapsed().as_micros();
         time_taken_seconds += engine.start.elapsed().as_secs_f32();
     }
-
+    println!("max move list length: {}", engine.max_size_move_nodes);
     println!(
         "nodes: {}, time:{:?}, nodes per second: {}",
         nodes,

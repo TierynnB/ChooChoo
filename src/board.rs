@@ -10,6 +10,8 @@ pub struct PlyData {
     pub can_castle_h1: bool,
     pub can_castle_h8: bool,
     en_passant_location: Option<(usize, usize)>,
+    pub white_queen_present: bool,
+    pub black_queen_present: bool,
 }
 
 #[derive(Clone)]
@@ -31,6 +33,8 @@ pub struct Board {
     pub ply_record: Vec<PlyData>,
     pub player_colour: i8,
     pub move_list: Vec<Move>,
+    pub white_queen_present: bool,
+    pub black_queen_present: bool,
 }
 
 impl Board {
@@ -78,6 +82,8 @@ impl Board {
             ply_record: Vec::new(),
             player_colour: 1,
             move_list: Vec::new(),
+            white_queen_present: true,
+            black_queen_present: true,
         };
     }
 
@@ -180,6 +186,9 @@ impl Board {
             can_castle_a8: self.can_castle_a8,
             can_castle_h1: self.can_castle_h1,
             can_castle_h8: self.can_castle_h8,
+
+            white_queen_present: self.white_queen_present,
+            black_queen_present: self.black_queen_present,
         });
 
         // if enpassant was set at board level, and a pawn just moved to an empty square, behind the en passant locaiton
@@ -272,6 +281,13 @@ impl Board {
 
             self.set_piece_and_colour(castle_from_to_square.0, EMPTY, EMPTY);
         }
+        if move_to_do.to_piece == QUEEN {
+            if move_to_do.to_colour == WHITE {
+                self.white_queen_present = false;
+            } else if move_to_do.to_colour == BLACK {
+                self.black_queen_present = false;
+            }
+        }
 
         // set side to move to opposite
         self.side_to_move = if self.side_to_move == WHITE {
@@ -353,6 +369,8 @@ impl Board {
             self.can_castle_h8 = previous_ply_data.can_castle_h8;
             self.en_passant_location = previous_ply_data.en_passant_location;
             self.player_colour = previous_ply_data.side_to_move;
+            self.black_queen_present = previous_ply_data.black_queen_present;
+            self.white_queen_present = previous_ply_data.white_queen_present;
         }
         self.ply_record.pop();
 

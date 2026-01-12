@@ -16,17 +16,33 @@ pub const PIECE_VALUES: PieceValues = PieceValues {
     bishop: 330,
     rook: 500,
     queen: 900,
-    king: 20000,
+    king: 0,
 };
 pub fn is_endgame(board: &Board) -> bool {
     // add presence of queens tot he board and ply data.
-    if board.ply > 50 {
+    if !board.black_queen_present && !board.white_queen_present {
         return true;
     }
-    // if if only queen on either side
+
+    if board.ply > 100 {
+        return true;
+    }
+
     return false;
 }
+pub fn get_piece_value(piece: i8) -> i32 {
+    match piece {
+        PAWN => PIECE_VALUES.pawn,
+        KNIGHT => PIECE_VALUES.knight,
+        BISHOP => PIECE_VALUES.bishop,
+        ROOK => PIECE_VALUES.rook,
+        QUEEN => PIECE_VALUES.queen,
+        KING => PIECE_VALUES.king,
+        _ => 0,
+    }
+}
 pub fn evaluate(board: &Board) -> i32 {
+    // https://www.chessprogramming.org/PeSTO%27s_Evaluation_Function
     let mut score: i32 = 0;
 
     for (row_index, row) in board.colour_array.iter().enumerate() {

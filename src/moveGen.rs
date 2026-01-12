@@ -48,6 +48,7 @@ pub fn generate_pawn_moves(
     square: (usize, usize),
     side_to_generate_for: i8,
     board: &Board,
+    captures_only: bool,
 ) -> Vec<Move> {
     let mut moves: Vec<Move> = vec![];
     let mut blocked = false;
@@ -179,6 +180,9 @@ pub fn generate_pawn_moves(
         }
     }
 
+    if captures_only {
+        moves.retain(|move_info| move_info.to_piece != 0);
+    }
     return moves;
 }
 pub fn get_knight_attacks(
@@ -231,6 +235,7 @@ pub fn generate_knight_moves(
     square: (usize, usize),
     side_to_generate_for: i8,
     board: &Board,
+    captures_only: bool,
 ) -> Vec<Move> {
     let mut moves: Vec<Move> = vec![];
 
@@ -238,6 +243,10 @@ pub fn generate_knight_moves(
 
     for attack_square in attack_squares {
         let to_piece_type = board.get_piece((attack_square.0, attack_square.1));
+
+        if captures_only && to_piece_type == 0 {
+            continue;
+        }
         let to_square_colour = board.get_piece_colour((attack_square.0, attack_square.1));
 
         moves.push(Move {
@@ -298,6 +307,7 @@ pub fn generate_bishop_moves(
     square: (usize, usize),
     side_to_generate_for: i8,
     board: &Board,
+    captures_only: bool,
 ) -> Vec<Move> {
     let mut moves: Vec<Move> = vec![];
 
@@ -305,6 +315,10 @@ pub fn generate_bishop_moves(
 
     for attack_square in attack_squares {
         let to_piece_type = board.get_piece((attack_square.0, attack_square.1));
+
+        if captures_only && to_piece_type == 0 {
+            continue;
+        }
         let to_square_colour = board.get_piece_colour((attack_square.0, attack_square.1));
 
         moves.push(Move {
@@ -366,6 +380,7 @@ pub fn generate_rook_moves(
     square: (usize, usize),
     side_to_generate_for: i8,
     board: &Board,
+    captures_only: bool,
 ) -> Vec<Move> {
     let mut moves: Vec<Move> = vec![];
 
@@ -373,6 +388,10 @@ pub fn generate_rook_moves(
 
     for attack_square in attack_squares {
         let to_piece_type = board.get_piece((attack_square.0, attack_square.1));
+
+        if captures_only && to_piece_type == 0 {
+            continue;
+        }
         let to_square_colour = board.get_piece_colour((attack_square.0, attack_square.1));
 
         moves.push(Move {
@@ -444,6 +463,7 @@ pub fn generate_queen_moves(
     square: (usize, usize),
     side_to_generate_for: i8,
     board: &Board,
+    captures_only: bool,
 ) -> Vec<Move> {
     let mut moves: Vec<Move> = vec![];
 
@@ -451,6 +471,9 @@ pub fn generate_queen_moves(
 
     for attack_square in attack_squares {
         let to_piece_type = board.get_piece((attack_square.0, attack_square.1));
+        if captures_only && to_piece_type == 0 {
+            continue;
+        }
         let to_square_colour = board.get_piece_colour((attack_square.0, attack_square.1));
 
         moves.push(Move {
@@ -526,6 +549,7 @@ pub fn generate_king_moves(
     side_to_generate_for: i8,
     board: &Board,
     is_in_check: bool,
+    captures_only: bool,
 ) -> Vec<Move> {
     // when castling, take into account that the king is moving through the squares, not teleporting
     // only for those squares castling still possible
@@ -535,6 +559,9 @@ pub fn generate_king_moves(
 
     for attack_square in attack_squares {
         let to_piece_type = board.get_piece((attack_square.0, attack_square.1));
+        if captures_only && to_piece_type == 0 {
+            continue;
+        }
         let to_square_colour = board.get_piece_colour((attack_square.0, attack_square.1));
 
         moves.push(Move {
@@ -632,6 +659,7 @@ pub fn generate_pseudo_legal_moves(
     board: &Board,
     side_to_generate_for: i8,
     is_in_check: bool,
+    captures_only: bool,
 ) -> Vec<Move> {
     let mut moves: Vec<Move> = vec![];
 
@@ -645,16 +673,42 @@ pub fn generate_pseudo_legal_moves(
             let square = board.get_piece((row_index, column_index));
 
             let mut generated_moves = match square {
-                1 => generate_pawn_moves((row_index, column_index), side_to_generate_for, board),
-                2 => generate_knight_moves((row_index, column_index), side_to_generate_for, board),
-                3 => generate_bishop_moves((row_index, column_index), side_to_generate_for, board),
-                4 => generate_rook_moves((row_index, column_index), side_to_generate_for, board),
-                5 => generate_queen_moves((row_index, column_index), side_to_generate_for, board),
+                1 => generate_pawn_moves(
+                    (row_index, column_index),
+                    side_to_generate_for,
+                    board,
+                    captures_only,
+                ),
+                2 => generate_knight_moves(
+                    (row_index, column_index),
+                    side_to_generate_for,
+                    board,
+                    captures_only,
+                ),
+                3 => generate_bishop_moves(
+                    (row_index, column_index),
+                    side_to_generate_for,
+                    board,
+                    captures_only,
+                ),
+                4 => generate_rook_moves(
+                    (row_index, column_index),
+                    side_to_generate_for,
+                    board,
+                    captures_only,
+                ),
+                5 => generate_queen_moves(
+                    (row_index, column_index),
+                    side_to_generate_for,
+                    board,
+                    captures_only,
+                ),
                 6 => generate_king_moves(
                     (row_index, column_index),
                     side_to_generate_for,
                     board,
                     is_in_check,
+                    captures_only,
                 ),
                 _ => vec![],
             };

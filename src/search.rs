@@ -35,6 +35,7 @@ pub struct SearchEngine {
     pub searching_side: i8,
     pub move_overhead: u128,
     pub transposition_table: Vec<TranspositionTableEntry>,
+    pub max_size_move_nodes: usize,
 }
 
 pub fn order_moves(moves: &mut Vec<Move>) {
@@ -64,7 +65,15 @@ impl SearchEngine {
             use_time_management: false,
             searching_side: WHITE,
             transposition_table: Vec::new(),
+            max_size_move_nodes: 0,
         }
+    }
+    pub fn set_depth(&mut self, depth: i8) {
+        if depth > self.depth {
+            return;
+        }
+
+        self.depth = depth;
     }
     fn clear_tt(&mut self) {
         self.transposition_table = Vec::new();
@@ -112,97 +121,122 @@ impl SearchEngine {
             return 10000;
         }
     }
-    pub fn minimax(
+    // pub fn minimax(
+    //     &mut self,
+    //     board: &mut Board,
+    //     depth: i8,
+    //     maximizing_player: bool,
+    //     mut alpha: i32,
+    //     mut beta: i32,
+    // ) -> i32 {
+    //     // the move needs to record its own evaluation
+    //     if depth == 0 {
+    //         self.nodes += 1;
+
+    //         return evaluate::evaluate(&board);
+    //     };
+
+    //     // generate moves for current depth of board
+    //     let mut moves_for_current_depth =
+    //         movegen::generate_pseudo_legal_moves(board, board.side_to_move, false, false);
+
+    //     order_moves(&mut moves_for_current_depth);
+
+    //     if maximizing_player {
+    //         let mut max_eval = i32::MIN;
+    //         for generated_move in moves_for_current_depth.iter() {
+    //             board.make_move(generated_move);
+
+    //             let eval = self.minimax(board, depth - 1, false, alpha, beta);
+
+    //             board.un_make_move(generated_move);
+    //             max_eval = std::cmp::max(max_eval, eval);
+    //             alpha = std::cmp::max(alpha, eval);
+    //             if beta <= alpha {
+    //                 break;
+    //             }
+    //         }
+    //         return max_eval;
+    //     // and best outcome for minimising player (enemy)
+    //     } else {
+    //         let mut min_eval = i32::MAX;
+    //         for generated_move in moves_for_current_depth.iter() {
+    //             board.make_move(generated_move);
+
+    //             let eval = self.minimax(board, depth - 1, true, alpha, beta);
+
+    //             board.un_make_move(generated_move);
+    //             min_eval = std::cmp::min(min_eval, eval);
+    //             beta = std::cmp::min(beta, eval);
+    //             if beta <= alpha {
+    //                 break;
+    //             }
+    //         }
+    //         return min_eval;
+    //     }
+    // }
+
+    pub fn quiescence_search(
         &mut self,
         board: &mut Board,
-        depth: i8,
-        maximizing_player: bool,
         mut alpha: i32,
-        mut beta: i32,
+        beta: i32,
+        depth: i8,
     ) -> i32 {
-        // the move needs to record its own evaluation
-        if depth == 0 {
-            self.nodes += 1;
-
-            return evaluate::evaluate(&board);
-        };
-
-        // generate moves for current depth of board
-        let mut moves_for_current_depth =
-            movegen::generate_pseudo_legal_moves(board, board.side_to_move, false);
-
-        order_moves(&mut moves_for_current_depth);
-
-        if maximizing_player {
-            let mut max_eval = i32::MIN;
-            for generated_move in moves_for_current_depth.iter() {
-                board.make_move(generated_move);
-
-                let eval = self.minimax(board, depth - 1, false, alpha, beta);
-
-                board.un_make_move(generated_move);
-                max_eval = std::cmp::max(max_eval, eval);
-                alpha = std::cmp::max(alpha, eval);
-                if beta <= alpha {
-                    break;
-                }
-            }
-            return max_eval;
-        // and best outcome for minimising player (enemy)
-        } else {
-            let mut min_eval = i32::MAX;
-            for generated_move in moves_for_current_depth.iter() {
-                board.make_move(generated_move);
-
-                let eval = self.minimax(board, depth - 1, true, alpha, beta);
-
-                board.un_make_move(generated_move);
-                min_eval = std::cmp::min(min_eval, eval);
-                beta = std::cmp::min(beta, eval);
-                if beta <= alpha {
-                    break;
-                }
-            }
-            return min_eval;
-        }
-    }
-    pub fn quiescence_search(&mut self, board: &mut Board, mut alpha: i32, beta: i32) -> i32 {
-        // if in check, return.
-        // if evaluate::is_in_check(board, board.side_to_move, None) {
-        //     return evaluate(board);
-        // }
-
-        // if evaluate::is_in_check(board, board.side_to_move * -1, None) {
-        //     return evaluate(board);
-        // }
-        // searches the captures available
         let stand_pat = evaluate(board);
         if stand_pat >= beta {
+            self.nodes += 1;
+
             return beta;
         }
         if alpha < stand_pat {
             alpha = stand_pat;
         }
 
-        // generate moves for current depth of board
+        if depth == 0 {
+            self.nodes += 1;
+
+            return alpha;
+        }
+
         let mut moves_for_current_depth =
-            movegen::generate_pseudo_legal_moves(board, board.side_to_move, false);
+            movegen::generate_pseudo_legal_moves(board, board.side_to_move, false, true);
 
         order_moves(&mut moves_for_current_depth);
 
         for generated_move in moves_for_current_depth.iter() {
-            if generated_move.to_piece == EMPTY {
+            if self.use_time_management {
+                if self.start.elapsed().as_millis() > self.get_allowed_time(self.searching_side) {
+                    break;
+                }
+            }
+            if generated_move.to_piece == EMPTY && generated_move.promotion_to.is_none() {
                 continue;
             }
+
             if generated_move.to_piece == KING {
-                return alpha;
+                alpha = i32::MAX;
+                break;
+            }
+
+            // if exchange of equal pieces
+            if generated_move.to_piece == generated_move.from_piece {
+                continue;
+            }
+
+            // check if any move would improve alpha
+            if stand_pat + evaluate::get_piece_value(generated_move.to_piece) < alpha {
+                continue;
             }
 
             board.make_move(generated_move);
-            let score = -self.quiescence_search(board, -beta, -alpha);
+
+            let score = -self.quiescence_search(board, -beta, -alpha, depth - 1);
             board.un_make_move(generated_move);
 
             if score >= beta {
+                self.nodes += 1;
+
                 return beta;
             }
 
@@ -210,6 +244,7 @@ impl SearchEngine {
                 alpha = score;
             }
         }
+        self.nodes += 1;
 
         return alpha;
     }
@@ -217,29 +252,26 @@ impl SearchEngine {
         let mut best_value = i32::MIN;
         if depth == 0 {
             self.nodes += 1;
-            return self.quiescence_search(board, alpha, beta); //
-                                                               // return evaluate::evaluate(&board);
+            return self.quiescence_search(board, alpha, beta, 1); //
+                                                                  // return evaluate::evaluate(&board);
         };
 
-        if let Some(entry) = self.get_position_from_tt(conversion::hash_board_state(board)) {
-            return entry.position_terminal_score;
-        }
-
         let mut moves_for_current_depth =
-            movegen::generate_pseudo_legal_moves(board, board.side_to_move, false);
+            movegen::generate_pseudo_legal_moves(board, board.side_to_move, false, false);
 
         order_moves(&mut moves_for_current_depth);
 
         for generated_move in moves_for_current_depth.iter() {
+            if self.use_time_management {
+                if self.start.elapsed().as_millis() > self.get_allowed_time(self.searching_side) {
+                    self.nodes += 1;
+                    return best_value;
+                }
+            }
+
             board.make_move(generated_move);
 
             let eval = -self.alpha_beta(board, depth - 1, -beta, -alpha);
-
-            // let position_hash = conversion::hash_board_state(board);
-            // if self.get_position_from_tt(position_hash, depth).is_none() {
-            //     self.delete_tt_pos_for_hash(position_hash);
-            //     self.add_position_to_tt(conversion::hash_board_state(board), eval, depth);
-            // }
 
             board.un_make_move(generated_move);
 
@@ -269,11 +301,16 @@ impl SearchEngine {
         let currently_in_check = evaluate::is_in_check(board, current_side, None);
 
         // generate moves for current depth of board
-        let mut moves_for_current_depth =
-            movegen::generate_pseudo_legal_moves(board, board.side_to_move, currently_in_check);
+        let mut moves_for_current_depth = movegen::generate_pseudo_legal_moves(
+            board,
+            board.side_to_move,
+            currently_in_check,
+            false,
+        );
         order_moves(&mut moves_for_current_depth);
 
         while searching {
+            self.nodes = 0;
             for generated_move in moves_for_current_depth.iter_mut() {
                 if generated_move.illegal_move {
                     continue;
@@ -296,16 +333,7 @@ impl SearchEngine {
                     board.un_make_move(generated_move);
                     continue;
                 }
-                // let position_hash = conversion::hash_board_state_for_tt(board);
-                // match self.get_position_from_tt(position_hash) {
-                //     Some(entry) => {
-                //         generated_move.search_score = entry.position_terminal_score;
-                //     }
-                //     None => {
 
-                //         self.add_position_to_tt(position_hash, generated_move.search_score);
-                //     }
-                // }
                 generated_move.search_score =
                     -self.alpha_beta(board, self.current_depth, i32::MIN + 1, i32::MAX);
                 board.un_make_move(generated_move);
@@ -378,8 +406,12 @@ impl SearchEngine {
 
         let currently_in_check = evaluate::is_in_check(board, current_side, None);
 
-        let mut moves_for_current_depth =
-            movegen::generate_pseudo_legal_moves(board, board.side_to_move, currently_in_check);
+        let mut moves_for_current_depth = movegen::generate_pseudo_legal_moves(
+            board,
+            board.side_to_move,
+            currently_in_check,
+            false,
+        );
 
         for generated_move in moves_for_current_depth.iter_mut() {
             board.make_move(generated_move);
