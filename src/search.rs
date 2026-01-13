@@ -7,10 +7,20 @@ use crate::movegen;
 use crate::moves::*;
 use std::time::Instant;
 
+#[derive(Clone, Copy, PartialEq)]
+pub enum TTFlag {
+    Exact,
+    LowerBound,
+    UpperBound,
+}
+
+#[derive(Clone, Copy)]
 pub struct TranspositionTableEntry {
     pub position_hash: u64,
-    pub depth_distance: i8,
-    pub position_terminal_score: i32,
+    pub depth: i8,
+    pub score: i32,
+    pub flag: TTFlag,
+    pub best_move: Option<Move>,
 }
 pub struct MoveNode {
     pub move_notation: String,
@@ -36,14 +46,25 @@ pub struct SearchEngine {
     pub move_overhead: u128,
     pub transposition_table: Vec<TranspositionTableEntry>,
     pub max_size_move_nodes: usize,
+    pub abort_search: bool,
+    pub time_limit: u128,
+    pub movestogo: i8,
 }
 
-pub fn order_moves(moves: &mut Vec<Move>) {
+pub fn order_moves(moves: &mut Vec<Move>, best_move: Option<Move>) {
     for i in 0..moves.len() {
         let move_to_score = moves.get_mut(i).unwrap();
-        let value = MVV_LVA[move_to_score.to_piece as usize][move_to_score.from_piece as usize];
+        
+        // Prioritize the best move from TT
+        if let Some(bm) = &best_move {
+            if move_to_score == bm {
+                move_to_score.sort_score = 1000000;
+                continue;
+            }
+        }
 
-        move_to_score.sort_score += value;
+        let value = MVV_LVA[move_to_score.to_piece as usize][move_to_score.from_piece as usize];
+        move_to_score.sort_score += value as i32;
     }
 
     moves.sort_by(|a, b| b.sort_score.cmp(&a.sort_score));
@@ -66,46 +87,32 @@ impl SearchEngine {
             searching_side: WHITE,
             transposition_table: Vec::new(),
             max_size_move_nodes: 0,
+            abort_search: false,
+            time_limit: u128::MAX,
+            movestogo: 30, // Default to 30 moves left
         }
     }
     pub fn set_depth(&mut self, depth: i8) {
-        if depth > self.depth {
-            return;
-        }
-
         self.depth = depth;
     }
     fn clear_tt(&mut self) {
         self.transposition_table = Vec::new();
     }
-    fn delete_tt_pos_for_hash(&mut self, position_hash: u64) {
-        self.transposition_table
-            .retain(|entry| entry.position_hash != position_hash);
-    }
-    fn add_position_to_tt(
-        &mut self,
-        position_hash: u64,
-        position_terminal_score: i32,
-        depth_distance: i8,
-    ) {
-        self.transposition_table.push(TranspositionTableEntry {
-            position_hash,
-            position_terminal_score,
-            depth_distance: depth_distance,
-        });
-    }
-    fn get_position_from_tt(&self, position_hash: u64) -> Option<&TranspositionTableEntry> {
-        for entry in self.transposition_table.iter() {
-            if entry.position_hash == position_hash {
-                return Some(entry);
-            }
-        }
-        return None;
+    fn reset_search_state(&mut self) {
+        self.nodes = 0;
+        self.abort_search = false;
+        self.start = Instant::now();
     }
     pub fn get_allowed_time(&self, side: i8) -> u128 {
         if self.use_time_management {
             if self.movetime > 0 {
-                return self.movetime - 2 * self.move_overhead;
+                // Use movetime but ensure we leave some overhead
+                let safe_movetime = if self.movetime > 2 * self.move_overhead {
+                    self.movetime - 2 * self.move_overhead
+                } else {
+                    self.movetime / 2
+                };
+                return safe_movetime;
             }
 
             let time_left = if side == WHITE {
@@ -115,128 +122,115 @@ impl SearchEngine {
             };
 
             let increment = if side == WHITE { self.winc } else { self.binc };
-            // println!("{} {}", self.move_overhead, increment);
-            return (time_left / 30 + increment - 2 * self.move_overhead) as u128;
+            
+            // Use movestogo if provided, otherwise default to 40 moves
+            let moves_to_plan_for = if self.movestogo > 0 { self.movestogo as u128 } else { 40 };
+            
+            let base_time = time_left / moves_to_plan_for;
+            let inc_bonus = (increment * 3) / 4;
+            let overhead_cost = 2 * self.move_overhead;
+            
+            // Ensure we don't go negative
+            if base_time + inc_bonus > overhead_cost {
+                return base_time + inc_bonus - overhead_cost;
+            } else {
+                // Emergency: use at least 1% of remaining time
+                return std::cmp::max(time_left / 100, 50);
+            }
         } else {
-            return 10000;
+            // When time management is disabled, return a very large value
+            // This allows depth-based search to complete
+            return u128::MAX;
         }
     }
-    // pub fn minimax(
-    //     &mut self,
-    //     board: &mut Board,
-    //     depth: i8,
-    //     maximizing_player: bool,
-    //     mut alpha: i32,
-    //     mut beta: i32,
-    // ) -> i32 {
-    //     // the move needs to record its own evaluation
-    //     if depth == 0 {
-    //         self.nodes += 1;
+    fn store_tt(
+        &mut self,
+        position_hash: u64,
+        depth: i8,
+        score: i32,
+        flag: TTFlag,
+        best_move: Option<Move>,
+    ) {
+         // Simple replacement scheme or stick depth
+        if let Some(existing) = self.transposition_table.iter_mut().find(|e| e.position_hash == position_hash) {
+             if existing.depth <= depth {
+                  existing.depth = depth;
+                  existing.score = score;
+                  existing.flag = flag;
+                  existing.best_move = best_move;
+             }
+             return;
+        }
 
-    //         return evaluate::evaluate(&board);
-    //     };
+        self.transposition_table.push(TranspositionTableEntry {
+            position_hash,
+            depth,
+            score,
+            flag,
+            best_move,
+        });
+    }
 
-    //     // generate moves for current depth of board
-    //     let mut moves_for_current_depth =
-    //         movegen::generate_pseudo_legal_moves(board, board.side_to_move, false, false);
-
-    //     order_moves(&mut moves_for_current_depth);
-
-    //     if maximizing_player {
-    //         let mut max_eval = i32::MIN;
-    //         for generated_move in moves_for_current_depth.iter() {
-    //             board.make_move(generated_move);
-
-    //             let eval = self.minimax(board, depth - 1, false, alpha, beta);
-
-    //             board.un_make_move(generated_move);
-    //             max_eval = std::cmp::max(max_eval, eval);
-    //             alpha = std::cmp::max(alpha, eval);
-    //             if beta <= alpha {
-    //                 break;
-    //             }
-    //         }
-    //         return max_eval;
-    //     // and best outcome for minimising player (enemy)
-    //     } else {
-    //         let mut min_eval = i32::MAX;
-    //         for generated_move in moves_for_current_depth.iter() {
-    //             board.make_move(generated_move);
-
-    //             let eval = self.minimax(board, depth - 1, true, alpha, beta);
-
-    //             board.un_make_move(generated_move);
-    //             min_eval = std::cmp::min(min_eval, eval);
-    //             beta = std::cmp::min(beta, eval);
-    //             if beta <= alpha {
-    //                 break;
-    //             }
-    //         }
-    //         return min_eval;
-    //     }
-    // }
+    fn probe_tt(&self, position_hash: u64) -> Option<&TranspositionTableEntry> {
+        self.transposition_table.iter().find(|e| e.position_hash == position_hash)
+    }
 
     pub fn quiescence_search(
         &mut self,
         board: &mut Board,
         mut alpha: i32,
         beta: i32,
-        depth: i8,
     ) -> i32 {
+        self.nodes += 1;
+        
         let stand_pat = evaluate(board);
+        
         if stand_pat >= beta {
-            self.nodes += 1;
-
             return beta;
         }
-        if alpha < stand_pat {
-            alpha = stand_pat;
+        
+        // Delta pruning: if stand_pat + BIG VALUE < alpha, we can probably quit,
+        // unless we are in endgame or similar. 
+        // For safety, let's use a large delta (Queen val is ~900).
+        const DELTA: i32 = 975; 
+        if stand_pat < alpha - DELTA {
+             // We can only prune if we don't have powerful captures (promotions).
+             // But for safety in simple engine, maybe skip delta pruning or be very conservative.
+             // return alpha; 
         }
 
-        if depth == 0 {
-            self.nodes += 1;
-
-            return alpha;
+        if alpha < stand_pat {
+            alpha = stand_pat;
         }
 
         let mut moves_for_current_depth =
             movegen::generate_pseudo_legal_moves(board, board.side_to_move, false, true);
 
-        order_moves(&mut moves_for_current_depth);
+        order_moves(&mut moves_for_current_depth, None);
 
         for generated_move in moves_for_current_depth.iter() {
             if self.use_time_management {
-                if self.start.elapsed().as_millis() > self.get_allowed_time(self.searching_side) {
-                    break;
+                if (self.nodes % 2048) == 0 && self.start.elapsed().as_millis() > self.time_limit {
+                     self.abort_search = true;
+                }
+                if self.abort_search {
+                     break;
                 }
             }
-            if generated_move.to_piece == EMPTY && generated_move.promotion_to.is_none() {
-                continue;
-            }
 
-            if generated_move.to_piece == KING {
-                alpha = i32::MAX;
-                break;
-            }
-
-            // if exchange of equal pieces
-            if generated_move.to_piece == generated_move.from_piece {
-                continue;
-            }
-
-            // check if any move would improve alpha
-            if stand_pat + evaluate::get_piece_value(generated_move.to_piece) < alpha {
-                continue;
-            }
+            // Delta Pruning check: if move captures, stand_pat + captured_piece + margin < alpha?
+            // This is safer delta pruning.
+             let captured_val = evaluate::get_piece_value(generated_move.to_piece);
+             if stand_pat + captured_val + 200 < alpha && generated_move.promotion_to.is_none() {
+                 continue; 
+             }
 
             board.make_move(generated_move);
-
-            let score = -self.quiescence_search(board, -beta, -alpha, depth - 1);
+            // QSearch has no depth limit, but naturally terminates as captures run out.
+            let score = -self.quiescence_search(board, -beta, -alpha);
             board.un_make_move(generated_move);
 
             if score >= beta {
-                self.nodes += 1;
-
                 return beta;
             }
 
@@ -244,49 +238,124 @@ impl SearchEngine {
                 alpha = score;
             }
         }
-        self.nodes += 1;
 
         return alpha;
     }
+
     pub fn alpha_beta(&mut self, board: &mut Board, depth: i8, mut alpha: i32, beta: i32) -> i32 {
-        let mut best_value = i32::MIN;
-        if depth == 0 {
-            self.nodes += 1;
-            return self.quiescence_search(board, alpha, beta, 1); //
-                                                                  // return evaluate::evaluate(&board);
+        if self.use_time_management {
+             if (self.nodes % 2048) == 0 && self.start.elapsed().as_millis() > self.time_limit {
+                 self.abort_search = true;
+             }
+             if self.abort_search {
+                 return 0;
+             }
+        }
+        
+        let alpha_orig = alpha;
+        let position_hash = conversion::hash_board_state_for_tt(board);
+        let mut best_move: Option<Move> = None;
+
+        // TT Probe
+        if let Some(entry) = self.probe_tt(position_hash) {
+            if entry.depth >= depth {
+                match entry.flag {
+                    TTFlag::Exact => return entry.score,
+                    TTFlag::LowerBound => alpha = std::cmp::max(alpha, entry.score),
+                    TTFlag::UpperBound => {
+                         // beta = std::cmp::min(beta, entry.score); // standard upper bound logic
+                         // For now, let's trust it only if it causes a cutoff
+                         if entry.score <= alpha { return entry.score; } // this is fail-low?
+                    } 
+                }
+                // If bounds crossed
+                if alpha >= beta {
+                    return entry.score;
+                }
+            }
+            best_move = entry.best_move.clone();
+        }
+
+        if depth <= 0 {
+            return self.quiescence_search(board, alpha, beta);
         };
+
+        self.nodes += 1;
 
         let mut moves_for_current_depth =
             movegen::generate_pseudo_legal_moves(board, board.side_to_move, false, false);
+        
+        // Pass TT move to order_moves
+        order_moves(&mut moves_for_current_depth, best_move.clone());
 
-        order_moves(&mut moves_for_current_depth);
+        let mut best_value = i32::MIN + 1; // +1 to avoid overflow when negating?
+        let mut best_move_found: Option<Move> = None;
+        
+        let mut legal_moves = 0;
 
         for generated_move in moves_for_current_depth.iter() {
-            if self.use_time_management {
-                if self.start.elapsed().as_millis() > self.get_allowed_time(self.searching_side) {
-                    self.nodes += 1;
-                    return best_value;
-                }
-            }
-
+            // make_move returns void, doesn't check legality fully (e.g. self check)
+            // so we assume pseudo-legal, but need to check after make_move if king is safe?
+            // Existing logic checked `illegal_move` flag or unmade. 
+            // The existing `search` loop handled this. `alpha_beta` assumed valid?
+            // We should check validity here to be safe, OR `generate_pseudo_legal_moves` is trusted if we filter self-check.
+            
             board.make_move(generated_move);
+            
+            // Check legality (self-check)
+            // Note: `is_in_check` checks if `side_to_check` is under attack. 
+            // After `make_move`, `board.side_to_move` is flipped.
+            // We need to check if the side that JUST moved is in check.
+            let side_just_moved = if board.side_to_move == WHITE { BLACK } else { WHITE };
+            if evaluate::is_in_check(board, side_just_moved, None) {
+                 board.un_make_move(generated_move);
+                 continue;
+            }
+            legal_moves += 1;
 
             let eval = -self.alpha_beta(board, depth - 1, -beta, -alpha);
-
             board.un_make_move(generated_move);
+            
+            if self.abort_search {
+                 return 0;
+            }
 
-            best_value = std::cmp::max(best_value, eval);
+            if eval > best_value {
+                best_value = eval;
+                best_move_found = Some(generated_move.clone());
+            }
+            
             alpha = std::cmp::max(alpha, eval);
-
-            if eval >= beta {
-                return best_value;
+            if alpha >= beta {
+                best_value = beta; // Fail hard
+                break; 
             }
         }
+        
+        if legal_moves == 0 {
+             // Checkmate or Stalemate
+             if evaluate::is_in_check(board, board.side_to_move, None) {
+                 return -20000 + (self.current_depth as i32 - depth as i32); // Checkmate score adjusted for distance
+             } else {
+                 return 0; // Stalemate
+             }
+        }
+
+        // TT Store
+        let flag = if best_value <= alpha_orig {
+             TTFlag::UpperBound
+        } else if best_value >= beta {
+             TTFlag::LowerBound
+        } else {
+             TTFlag::Exact
+        };
+        
+        self.store_tt(position_hash, depth, best_value, flag, best_move_found);
+
         return best_value;
     }
 
     pub fn search(&mut self, board: &mut Board) -> (Move, Vec<BestMoves>) {
-        // adding in iterative deepening?
         let mut searching = true;
         let mut best_move = Move::default();
         let mut best_score = i32::MIN;
@@ -294,103 +363,67 @@ impl SearchEngine {
 
         self.clear_tt();
         self.searching_side = board.side_to_move;
-        self.nodes = 0;
-        self.start = Instant::now();
-        let current_side = board.side_to_move;
-
-        let currently_in_check = evaluate::is_in_check(board, current_side, None);
-
-        // generate moves for current depth of board
-        let mut moves_for_current_depth = movegen::generate_pseudo_legal_moves(
-            board,
-            board.side_to_move,
-            currently_in_check,
-            false,
-        );
-        order_moves(&mut moves_for_current_depth);
+        self.reset_search_state();
+        self.time_limit = self.get_allowed_time(self.searching_side);
+        
+        let mut current_search_depth = 1;
 
         while searching {
-            self.nodes = 0;
-            for generated_move in moves_for_current_depth.iter_mut() {
-                if generated_move.illegal_move {
-                    continue;
-                }
-                board.make_move(generated_move);
+             // Check time BEFORE starting a new depth iteration
+             if self.use_time_management {
+                 let elapsed = self.start.elapsed().as_millis();
+                 // If we've used more than 40% of our time, don't start a new depth
+                 if elapsed > (self.time_limit * 2) / 5 && current_search_depth > 1 {
+                     searching = false;
+                     break;
+                 }
+             }
+             
+             let alpha = i32::MIN + 1;
+             let beta = i32::MAX;
+             
+             let score = self.alpha_beta(board, current_search_depth, alpha, beta);
+             
+             if self.abort_search {
+                 break;
+             }
 
-                // check not moving self into check
-                if evaluate::is_in_check(
-                    board,
-                    current_side,
-                    generated_move.castling_intermediary_square,
-                ) {
-                    generated_move.illegal_move = true;
-                    board.un_make_move(generated_move);
-                    continue;
-                }
+             // Only update if search completed
+             self.current_depth = current_search_depth;
+             
+             // Extract best move from TT
+             let position_hash = conversion::hash_board_state_for_tt(board);
+             if let Some(entry) = self.probe_tt(position_hash) {
+                  if let Some(bm) = &entry.best_move {
+                      best_move = bm.clone();
+                      best_score = score;
+                  }
+             }
 
-                if board.has_positions_repeated() {
-                    generated_move.illegal_move = true;
-                    board.un_make_move(generated_move);
-                    continue;
-                }
-
-                generated_move.search_score =
-                    -self.alpha_beta(board, self.current_depth, i32::MIN + 1, i32::MAX);
-                board.un_make_move(generated_move);
-
-                if self.use_time_management {
-                    if self.start.elapsed().as_millis() > self.get_allowed_time(self.searching_side)
-                    {
-                        searching = false;
-                        break;
-                    }
-                }
-            }
-
-            if searching && self.use_time_management {
-                if self.start.elapsed().as_millis() > self.get_allowed_time(self.searching_side) {
-                    println!("time limit reached");
-                    searching = false;
-                }
-            }
-
-            if searching && (self.current_depth < self.depth || self.use_time_management) {
-                self.current_depth += 1;
-            } else {
-                searching = false;
-            }
-
-            moves_for_current_depth.sort_by(|a, b| {
-                let score_cmp = b.search_score.cmp(&a.search_score);
-                if score_cmp == std::cmp::Ordering::Equal {
-                    b.sort_score.cmp(&a.sort_score)
-                } else {
-                    score_cmp
-                }
-            });
+             // Decide whether to continue to next depth
+             if current_search_depth >= self.depth {
+                 searching = false;
+             } else {
+                 current_search_depth += 1;
+                 
+                 if current_search_depth > 50 { 
+                     searching = false; 
+                 }
+                 
+                 if self.use_time_management {
+                     let elapsed = self.start.elapsed().as_millis();
+                     if elapsed > (self.time_limit * 2) / 5 {
+                         searching = false;
+                     }
+                 }
+             }
         }
-
-        for generated_move in moves_for_current_depth.iter() {
-            // println!(
-            //     "{} {} {} {}",
-            //     conversion::convert_move_to_notation(generated_move),
-            //     generated_move.search_score,
-            //     generated_move.sort_score,
-            //     generated_move.illegal_move
-            // );
-            if generated_move.illegal_move {
-                continue;
-            }
-
-            if generated_move.search_score > best_score {
-                best_score = generated_move.search_score;
-                best_move = generated_move.clone();
-            }
-            best_moves.push(BestMoves {
-                best_move: generated_move.clone(),
-                best_score: generated_move.search_score,
-            });
-        }
+        
+        // Populate best_moves vector for UI/UCI compatibility if needed by the caller
+        best_moves.push(BestMoves {
+            best_move: best_move.clone(),
+            best_score: best_score,
+        });
 
         return (best_move, best_moves);
     }

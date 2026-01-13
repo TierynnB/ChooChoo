@@ -23,7 +23,7 @@ pub fn get_pawn_attacks(
         // if out of bounds, stop
         if (row as isize + move_steps.0) < 0
             || (row as isize + move_steps.0) > 7
-            || (column as isize + move_steps.1) < 0
+            || (column as isize + move_steps.1) < 0 
             || (column as isize + move_steps.1) > 7
         {
             continue;

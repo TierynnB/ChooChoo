@@ -239,6 +239,15 @@ impl CommunicationManager {
         // output all the options curently supported
     }
     pub fn go(&mut self, command_text: &str) {
+        self.engine.use_time_management = false;
+        self.engine.movetime = 0;
+        self.engine.wtime = 0;
+        self.engine.btime = 0;
+        self.engine.winc = 0;
+        self.engine.binc = 0;
+        self.engine.movestogo = 0;
+        self.engine.depth = 50; // default to max depth for timed search
+        
         let mut command_text_split = command_text.split_ascii_whitespace();
         let _first_token = command_text_split.next().expect("no token");
 
@@ -246,6 +255,9 @@ impl CommunicationManager {
             // println!("token: {}", token);
 
             match token {
+                "infinite" => {
+                    self.engine.use_time_management = false;
+                }
                 "wtime" => {
                     self.engine.wtime = command_text_split.next().unwrap().parse::<u128>().unwrap();
                     self.engine.use_time_management = true;
@@ -259,15 +271,14 @@ impl CommunicationManager {
                     self.engine.use_time_management = true;
                 }
                 "binc" => {
-                    self.engine.wtime = command_text_split.next().unwrap().parse::<u128>().unwrap();
+                    self.engine.binc = command_text_split.next().unwrap().parse::<u128>().unwrap();
                     self.engine.use_time_management = true;
                 }
                 "movestogo" => {
-                    self.engine.depth = command_text_split.next().unwrap().parse::<i8>().unwrap();
+                    self.engine.movestogo = command_text_split.next().unwrap().parse::<i8>().unwrap();
                 }
                 "depth" => {
-                    self.engine
-                        .set_depth(command_text_split.next().unwrap().parse::<i8>().unwrap());
+                    self.engine.depth = command_text_split.next().unwrap().parse::<i8>().unwrap();
                 }
                 "movetime" => {
                     self.engine.movetime =
@@ -281,14 +292,19 @@ impl CommunicationManager {
         let moves = self.engine.search(&mut self.board);
 
         let time_taken_seconds = self.engine.start.elapsed().as_secs_f32();
-        println!("max move list length: {}", self.engine.max_size_move_nodes);
+        let time_taken_ms = self.engine.start.elapsed().as_millis();
+        let nps = if time_taken_seconds > 0.0 {
+            (self.engine.nodes as f32 / time_taken_seconds) as u64
+        } else {
+            0
+        };
+        
         println!(
-            "info depth {} time {} nodes {} nps {} score cp {:.2}",
+            "info depth {} time {} nodes {} nps {}",
             self.engine.current_depth,
-            self.engine.start.elapsed().as_millis(),
+            time_taken_ms,
             self.engine.nodes,
-            self.engine.nodes as f32 / time_taken_seconds,
-            moves.0.search_score,
+            nps
         );
         println!(
             "bestmove {}",

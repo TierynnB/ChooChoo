@@ -139,9 +139,6 @@ impl Board {
         self.move_list = Vec::new();
         self.player_colour = 1;
     }
-    fn _clear_hash_of_previous_positions(&mut self) {
-        self.hash_of_previous_positions = Vec::new();
-    }
 
     fn add_hash_of_current_position(&mut self) {
         self.hash_of_previous_positions
@@ -283,9 +280,16 @@ impl Board {
         }
         if move_to_do.to_piece == QUEEN {
             if move_to_do.to_colour == WHITE {
-                self.white_queen_present = false;
+                self.white_queen_present = self.is_piece_type_on_board_for_side(QUEEN, WHITE);
             } else if move_to_do.to_colour == BLACK {
-                self.black_queen_present = false;
+                self.black_queen_present = self.is_piece_type_on_board_for_side(QUEEN, BLACK);
+            }
+        }
+        if move_to_do.promotion_to == Some(QUEEN) {
+            if move_to_do.from_colour == WHITE {
+                self.white_queen_present = true;
+            } else if move_to_do.from_colour == BLACK {
+                self.black_queen_present = true;
             }
         }
 
@@ -423,7 +427,7 @@ impl Board {
                 "e1g1" => ((7, 4), (7, 6), (7, 7), (7, 5)),
                 "e8g8" => ((0, 4), (0, 6), (0, 7), (0, 5)),
                 "e1c1" => ((7, 4), (7, 2), (7, 0), (7, 3)),
-                "e8c8" => ((0, 4), (0, 2), (0, 9), (0, 3)),
+                "e8c8" => ((0, 4), (0, 2), (0, 0), (0, 3)),
                 _ => return Err("Invalid castling move".to_string()),
             };
             // depends on side to move where piece is

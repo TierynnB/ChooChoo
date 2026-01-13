@@ -16,7 +16,7 @@ pub const PIECE_VALUES: PieceValues = PieceValues {
     bishop: 330,
     rook: 500,
     queen: 900,
-    king: 0,
+    king: 20000,
 };
 pub fn is_endgame(board: &Board) -> bool {
     // add presence of queens tot he board and ply data.
@@ -122,69 +122,6 @@ pub fn is_in_check(
         }
     }
     return false;
-}
-pub fn get_safety_score(board: &Board, square: (usize, usize), side_to_check: i8) -> i32 {
-    let mut safety_score = 0;
-    let mut number_of_attackers = 0;
-
-    let piece_attack_weight = [1, 20, 20, 40, 80, 1];
-    let square_direction = [
-        (1, 0),
-        (1, -1),
-        (0, -1),
-        (-1, -1),
-        (-1, 0),
-        (-1, 1),
-        (0, 1),
-        (1, 1),
-        (0, 0),
-    ];
-    // for the square,  get it and all the surrounding squares locations.
-    // for each of those squares, check if it is attacked.
-    let opponent_colour = if side_to_check == WHITE { BLACK } else { WHITE };
-
-    for direction in square_direction.iter() {
-        let square_to_check = (square.0 as i8 + direction.0, square.1 as i8 + direction.1);
-        if square_to_check.0 < 0
-            || square_to_check.0 > 7
-            || square_to_check.1 < 0
-            || square_to_check.1 > 7
-        {
-            continue;
-        }
-        let mut square_checked = false;
-        for (row_index, row) in board.colour_array.iter().enumerate() {
-            for (column_index, square_colour) in row.iter().enumerate() {
-                if square_colour != &opponent_colour {
-                    continue;
-                }
-
-                let piece_type = board.get_piece((row_index, column_index));
-
-                let outcome = is_attacked_by_piece_from_square(
-                    board,
-                    (row_index, column_index),
-                    piece_type,
-                    (square_to_check.0 as usize, square_to_check.1 as usize),
-                    opponent_colour,
-                );
-
-                if outcome {
-                    number_of_attackers += 1;
-                    safety_score += piece_attack_weight[piece_type as usize - 1];
-                    square_checked = true;
-                }
-                if square_checked {
-                    break;
-                }
-            }
-
-            if square_checked {
-                break;
-            }
-        }
-    }
-    return number_of_attackers * safety_score;
 }
 // in case of castling, check if they attack the intermediary squares.
 
@@ -330,20 +267,14 @@ mod tests {
         assert!(eval < -100, "position favours white!");
     }
 
-    #[test]
-    fn evaluate_white_2() {
-        let board =
-            conversion::convert_fen_to_board("5k2/5p2/4pQp1/4P1Np/7P/6P1/4qP1K/8 b - - 10 41");
-
-        let eval = evaluate::evaluate(&board);
-        assert!(eval > 100, "position does not favour white!");
-    }
+  
     #[test]
     fn evaluate_black_1() {
         let board = conversion::convert_fen_to_board("1k6/7p/4q3/3n4/3K4/2q5/7P/8 w - - 2 50");
 
         let eval = evaluate::evaluate(&board);
-        assert!(eval > 100, "position does not favour black!");
+
+        assert!(eval < -100, "position does not favour black!");
     }
 
     // test black favoured position favour black

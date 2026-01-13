@@ -24,13 +24,13 @@ pub const BOARD_COORDINATES: [[&str; 8]; 8] = [
 // MVV_VLA[victim][attacker]
 // Most Valued Victim, Least Valued Attacker
 pub const MVV_LVA: [[u8; 7]; 7] = [
-    [60, 61, 62, 63, 64, 65, 0], // victim K, attacker K, Q, R, B, N, P, None
-    [10, 11, 12, 13, 14, 15, 0], // victim P, attacker K, Q, R, B, N, P, None
-    [20, 21, 22, 23, 24, 25, 0], // victim N, attacker K, Q, R, B, N, P, None
-    [30, 31, 32, 33, 34, 35, 0], // victim B, attacker K, Q, R, B, N, P, None
-    [40, 41, 42, 43, 44, 45, 0], // victim R, attacker K, Q, R, B, N, P, None
-    [50, 51, 52, 53, 54, 55, 0], // victim Q, attacker K, Q, R, B, N, P, None
-    [0, 0, 0, 0, 0, 0, 0],       // victim None, attacker K, Q, R, B, N, P, None
+    [0, 0, 0, 0, 0, 0, 0],       // Victim None
+    [0, 15, 14, 13, 12, 11, 10], // Victim P, attacker P, N, B, R, Q, K
+    [0, 25, 24, 23, 22, 21, 20], // Victim N, attacker P, N, B, R, Q, K
+    [0, 35, 34, 33, 32, 31, 30], // Victim B, attacker P, N, B, R, Q, K
+    [0, 45, 44, 43, 42, 41, 40], // Victim R, attacker P, N, B, R, Q, K
+    [0, 55, 54, 53, 52, 51, 50], // Victim Q, attacker P, N, B, R, Q, K
+    [0, 65, 64, 63, 62, 61, 60], // Victim K, attacker P, N, B, R, Q, K
 ];
 pub const MG_PAWN_TABLE: [[i32; 8]; 8] = [
     [0, 0, 0, 0, 0, 0, 0, 0],

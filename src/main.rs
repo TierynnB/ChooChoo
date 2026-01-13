@@ -7,6 +7,7 @@ pub mod movegen;
 pub mod moves;
 pub mod search;
 pub mod uci;
+pub mod zobrist;
 fn main() {
     uci::run();
 }

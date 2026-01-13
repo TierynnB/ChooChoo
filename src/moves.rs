@@ -1,6 +1,6 @@
 use crate::constants::EMPTY;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Move {
     pub from: (usize, usize),
     pub from_piece: i8,
@@ -12,7 +12,7 @@ pub struct Move {
     pub en_passant: bool,
     pub castle_from_to_square: Option<((usize, usize), (usize, usize))>,
     pub castling_intermediary_square: Option<(usize, usize)>,
-    pub sort_score: u8,
+    pub sort_score: i32,
     pub search_score: i32,
     pub illegal_move: bool,
 }
